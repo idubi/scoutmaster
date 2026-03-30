@@ -1,0 +1,5 @@
+{
+  "name": "ScoutMaster_Ongoing",
+  "description": "A comprehensive scouting application for robotics competitions, featuring modules for Login/Auth, Autonomous performance tracking, and TeleOp driver analysis, with Gemini-powered performance summaries.",
+  "requestFramePermissions": []
+}
