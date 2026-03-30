@@ -40,16 +40,19 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
   const [isInvestigationDropdownOpen, setIsInvestigationDropdownOpen] = useState(false);
   const [gameViewTeam, setGameViewTeam] = useState<string>('');
   const [gameViewMatch, setGameViewMatch] = useState<string>('');
+  const [compareSelectedTeams, setCompareSelectedTeams] = useState<string[]>([]);
   const [prevGameViewMatch, setPrevGameViewMatch] = useState<string>('');
   const [gameViewError, setGameViewError] = useState<string | null>(null);
   const [isGameTeamDropdownOpen, setIsGameTeamDropdownOpen] = useState(false);
   const [isGameMatchDropdownOpen, setIsGameMatchDropdownOpen] = useState(false);
+  const [isCompareTeamDropdownOpen, setIsCompareTeamDropdownOpen] = useState(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const metricDropdownRef = useRef<HTMLDivElement>(null);
   const investigationDropdownRef = useRef<HTMLDivElement>(null);
   const gameTeamDropdownRef = useRef<HTMLDivElement>(null);
   const gameMatchDropdownRef = useRef<HTMLDivElement>(null);
+  const compareTeamDropdownRef = useRef<HTMLDivElement>(null);
 
   // Derived searchTeam for investigation tab from selectedTeams
   const searchTeam = useMemo(() => {
@@ -93,6 +96,9 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
       }
       if (gameMatchDropdownRef.current && !gameMatchDropdownRef.current.contains(event.target as Node)) {
         setIsGameMatchDropdownOpen(false);
+      }
+      if (compareTeamDropdownRef.current && !compareTeamDropdownRef.current.contains(event.target as Node)) {
+        setIsCompareTeamDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -305,7 +311,8 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
           intakeFoul: row.teleIntakeFoul ? 1 : 0,
           total: (row.autoTotalScore || 0) + (row.teleTotalScore || 0),
           autoNotes: row.autoNotes || '',
-          teleComments: row.teleComments || row['הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)'] || ''
+          teleComments: row.teleComments || row['הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)'] || '',
+          raw: row
         };
       });
   }, [history, searchTeam]);
@@ -331,14 +338,14 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
   }, [filteredData, t.total]);
 
   const compareData = useMemo(() => {
-    if (selectedTeams.length === 0) return [];
+    if (compareSelectedTeams.length === 0) return [];
     
     const matchMap: Record<string, any> = {};
     
     history.forEach(row => {
       if (row.recordType !== 'MATCH_COMPLETE') return;
       const team = row.teamScouted?.toString();
-      if (!team || !selectedTeams.includes(team)) return;
+      if (!team || !compareSelectedTeams.includes(team)) return;
       
       const matchNum = row.matchNumber || row.gameNumber || '0';
       if (!matchMap[matchNum]) {
@@ -380,7 +387,7 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
     });
     
     return Object.values(matchMap).sort((a, b) => parseInt(a.match) - parseInt(b.match));
-  }, [history, selectedTeams, selectedMetrics]);
+  }, [history, compareSelectedTeams, selectedMetrics]);
 
   const COLORS = ['#818cf8', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316'];
 
@@ -418,7 +425,7 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
             </div>
           </div>
           
-          {selectedTeams.length > 0 && (
+          {((activeTab === 'compare' ? compareSelectedTeams.length > 0 : selectedTeams.length > 0) && activeTab !== 'game') && (
             <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1 rounded-xl">
               <span className="px-2 text-[10px] font-black uppercase tracking-widest text-slate-500">{t.graphTable}</span>
               <div className="flex bg-slate-800 p-1 rounded-lg">
@@ -850,7 +857,46 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
                   </div>
                 )}
 
-                <h3 className="font-black uppercase tracking-[0.2em] text-xs text-indigo-400 flex items-center gap-3 mb-6">
+                {/* Autonomous Table */}
+                <div className="mt-12">
+                  <h3 className="font-black uppercase tracking-[0.2em] text-xs text-rose-500 flex items-center gap-3 mb-6">
+                    <div className="w-8 h-[2px] bg-rose-500" />
+                    {t.autonomous}
+                  </h3>
+                  <div className="overflow-x-auto custom-scrollbar border-2 border-slate-100 rounded-2xl">
+                    <table className="w-full text-start border-collapse" dir={isRTL ? 'rtl' : 'ltr'}>
+                      <thead>
+                        <tr className="bg-rose-900 text-white">
+                          <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.match}</th>
+                          <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.startPos}</th>
+                          <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.drive}</th>
+                          <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.scored}</th>
+                          <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.missed}</th>
+                          <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start">{t.leave}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredData.map((row, idx) => {
+                          const raw = row.raw;
+                          return (
+                            <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                              <td className="py-4 px-6 font-bold text-slate-900 border-r border-slate-200">{raw.matchNumber || raw.gameNumber}</td>
+                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
+                                {raw.autoZoneType === 'big' ? t.bigTriangle : raw.autoZoneType === 'small' ? t.smallTriangle : raw.autoZoneType}
+                              </td>
+                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoIntakeUsed ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
+                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallHit}</td>
+                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallMiss}</td>
+                              <td className="py-4 px-6 font-bold text-slate-700">{raw.autoMobility_Leave ? 'leave' : (isRTL ? 'לא' : 'No')}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <h3 className="font-black uppercase tracking-[0.2em] text-xs text-indigo-400 flex items-center gap-3 mb-6 mt-12">
                   <div className="w-8 h-[2px] bg-indigo-500" />
                   {t.remarks}
                 </h3>
@@ -918,8 +964,70 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
                   ))}
                 </div>
 
+                {/* Compare Teams Filter Bar */}
+                <div className="p-4 sm:px-8 sm:pt-6 sm:pb-0">
+                  <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm" dir="ltr">
+                    <div className="flex-1 flex items-center gap-3" ref={compareTeamDropdownRef}>
+                      <span className="text-slate-500 font-bold whitespace-nowrap">Teams:</span>
+                      <div className="relative flex-1">
+                        <button 
+                          onClick={() => setIsCompareTeamDropdownOpen(!isCompareTeamDropdownOpen)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 flex items-center justify-between text-slate-900 font-bold hover:bg-slate-100 transition-all"
+                        >
+                          <div className="flex items-center gap-2">
+                            <ChevronDown size={16} className={`text-slate-400 transition-transform ${isCompareTeamDropdownOpen ? 'rotate-180' : ''}`} />
+                            <span>
+                              {compareSelectedTeams.length === 0 
+                                ? "Select Teams" 
+                                : compareSelectedTeams.length === uniqueTeams.length 
+                                  ? "All Teams" 
+                                  : `${compareSelectedTeams.length} Teams Selected`}
+                            </span>
+                          </div>
+                          <Search size={16} className="text-slate-400" />
+                        </button>
+                        {isCompareTeamDropdownOpen && (
+                          <div className="absolute z-50 mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-2 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Teams</span>
+                              <button 
+                                onClick={() => {
+                                  if (compareSelectedTeams.length === uniqueTeams.length) {
+                                    setCompareSelectedTeams([]);
+                                  } else {
+                                    setCompareSelectedTeams([...uniqueTeams]);
+                                  }
+                                }}
+                                className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700"
+                              >
+                                {compareSelectedTeams.length === uniqueTeams.length ? "Clear All" : "Select All"}
+                              </button>
+                            </div>
+                            <div className="max-h-[250px] overflow-y-auto p-2 space-y-1">
+                              {uniqueTeams.map(team => (
+                                <button
+                                  key={team}
+                                  onClick={() => {
+                                    setCompareSelectedTeams(prev => 
+                                      prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]
+                                    );
+                                  }}
+                                  className={`w-full flex items-center justify-between p-3 hover:bg-slate-100 rounded-lg transition-colors group ${compareSelectedTeams.includes(team) ? 'bg-slate-50' : ''}`}
+                                >
+                                  <span className="font-bold text-slate-900">{team}</span>
+                                  {compareSelectedTeams.includes(team) && <Check size={16} className="text-indigo-600" />}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="p-4 sm:p-8 min-h-[400px]">
-                  {selectedTeams.length > 0 ? (
+                  {compareSelectedTeams.length > 0 ? (
                     <div className="overflow-x-auto">
                       {compareTab === 'ranking' && (
                         <table className="w-full text-start border-collapse" dir={isRTL ? 'rtl' : 'ltr'}>
@@ -931,8 +1039,12 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
                             </tr>
                           </thead>
                           <tbody>
-                            {selectedTeams.map(team => {
-                              const teamRows = history.filter(r => r.recordType === 'MATCH_COMPLETE' && r.teamScouted?.toString() === team);
+                            {compareSelectedTeams.map(team => {
+                              const teamRows = history.filter(r => {
+                                const isMatchComplete = r.recordType === 'MATCH_COMPLETE';
+                                const isTargetTeam = r.teamScouted?.toString() === team;
+                                return isMatchComplete && isTargetTeam;
+                              });
                               const avgAuto = teamRows.length > 0 ? (teamRows.reduce((acc, r) => acc + (r.autoTotalScore || 0), 0) / teamRows.length).toFixed(2) : '0.00';
                               const avgTele = teamRows.length > 0 ? (teamRows.reduce((acc, r) => acc + (r.teleTotalScore || 0), 0) / teamRows.length).toFixed(2) : '0.00';
                               return (
@@ -961,7 +1073,11 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
                           </thead>
                           <tbody>
                             {history
-                              .filter(r => r.recordType === 'MATCH_COMPLETE' && selectedTeams.includes(r.teamScouted?.toString()))
+                              .filter(r => {
+                                const isMatchComplete = r.recordType === 'MATCH_COMPLETE';
+                                const isSelectedTeam = compareSelectedTeams.includes(r.teamScouted?.toString());
+                                return isMatchComplete && isSelectedTeam;
+                              })
                               .sort((a, b) => parseInt(a.matchNumber || '0') - parseInt(b.matchNumber || '0'))
                               .map((row, idx) => (
                                 <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
