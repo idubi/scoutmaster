@@ -15,6 +15,7 @@ interface SummaryViewProps {
   onLogout: () => void;
   onGenerateAi: () => void;
   language: Language;
+  error?: string | null;
 }
 
 const SummaryView: React.FC<SummaryViewProps> = (props) => {
@@ -73,15 +74,18 @@ const SummaryView: React.FC<SummaryViewProps> = (props) => {
           <span className={`px-3 py-1 rounded-full font-bold border border-white/20 uppercase ${isRTL ? 'text-[11px]' : 'text-[10px]'} ${props.user.allianceColor === 'Red' ? 'bg-red-600/40 text-white' : 'bg-blue-600/40 text-white'}`}>
             {isRTL ? (props.user.allianceColor === 'Red' ? 'אדום' : 'כחול') : props.user.allianceColor}
           </span>
-          <span className={`bg-black/10 px-3 py-1 rounded-full font-bold border border-white/20 uppercase ${isRTL ? 'text-[11px]' : 'text-[10px]'}`}>
-            {props.user.scouterRole === 'Small Triangle' ? (isRTL ? 'משולש קטן' : 'Small Triangle') : (isRTL ? 'שער גדול קרוב' : 'Near Big Goal')}
-          </span>
           <span className={`bg-black/10 px-3 py-1 rounded-full font-bold border border-white/20 uppercase ${isRTL ? 'text-[11px]' : 'text-[10px]'}`}>{t.team}: {props.auto.teamScouted}</span>
           <span className={`bg-emerald-500 px-3 py-1 rounded-full font-black border border-emerald-400 uppercase ${isRTL ? 'text-[11px]' : 'text-[10px]'}`}>{t.total}: {props.auto.totalScore + props.teleop.totalScore} {t.score}</span>
         </div>
       </div>
 
       <div className="p-6 space-y-6">
+        {props.error && (
+          <div className="bg-rose-50 border-2 border-rose-200 p-4 rounded-2xl flex items-center gap-3 text-rose-600 animate-in fade-in slide-in-from-top-2">
+            <AlertCircle size={20} className="shrink-0" />
+            <p className={`font-bold ${isRTL ? 'text-sm' : 'text-xs'}`}>{props.error}</p>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Auto Section Summary */}
           <div className="bg-slate-50 rounded-2xl border-2 border-slate-100 p-5">

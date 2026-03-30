@@ -14,8 +14,8 @@ const ALL_HEADERS = [
   'אוטונומי - נסע מהמקום', 'אוטונומי - כדור מנוקד', 'אוטונומי - כדורים שהוחטאו', 
   'הרובוט עשה leave?', 'טלאופ - כדור מנוקד', 'טלאופ - חניה', 'טווח ירי', 'איסוף ', 
   'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)',
-  'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'scouterName', 
-  'gameNumber', 'scouterRole', 'matchNumber', 'teamScouted', 'autoZoneType', 
+  'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
+  'gameNumber', 'matchNumber', 'teamScouted', 'role', 'autoZoneType', 
   'autoMobility_Leave', 
   'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
   'teleBallHit', 'teleSmallTriangle_Long', 'teleBigTriangle_Short',
@@ -35,7 +35,7 @@ async function syncToSpreadsheet(data: any) {
       body: JSON.stringify(payload)
     });
     const text = await response.text();
-    console.log(`Synced Match ${data.matchNumber} for Team ${data.teamScouted} (${data.scouterRole}): ${text}`);
+    console.log(`Synced Match ${data.matchNumber} for Team ${data.teamScouted}: ${text}`);
   } catch (error) {
     console.error('Sync error:', error);
   }
@@ -61,11 +61,11 @@ function generateData(team: string, match: number, position: string) {
     timestamp: new Date().toLocaleString(),
     sessionStartTime: new Date().toISOString(),
     sessionEndTime: new Date().toISOString(),
-    scouterName: scouterName,
+    name: scouterName,
     gameNumber: match.toString(),
-    scouterRole: position,
     matchNumber: match.toString(),
     teamScouted: team,
+    role: 'scouter',
     autoZoneType: zoneType,
     autoMobility_Leave: leave,
     autoOpenGate: Math.random() > 0.5,

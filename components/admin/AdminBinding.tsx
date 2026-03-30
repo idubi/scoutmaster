@@ -21,8 +21,8 @@ const AdminBinding: React.FC<AdminBindingProps> = ({ language, history, isLoadin
     const teams = ['15811', '15928', '25041'];
     const scouterNames = ['TestScouter1', 'TestScouter2', 'TestScouter3'];
     const ALL_HEADERS = [
-      'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'scouterName', 
-      'gameNumber', 'scouterRole', 'matchNumber', 'teamScouted', 'autoZoneType', 
+      'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
+      'gameNumber', 'matchNumber', 'teamScouted', 'role', 'autoZoneType', 
       'autoMobility_Leave', 
       'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
       'teleBallHit', 'teleSmallTriangle_Long', 'teleBigTriangle_Short',
@@ -51,11 +51,11 @@ const AdminBinding: React.FC<AdminBindingProps> = ({ language, history, isLoadin
             timestamp: new Date().toLocaleString(),
             sessionStartTime: new Date().toISOString(),
             sessionEndTime: new Date().toISOString(),
-            scouterName: scouterNames[Math.floor(Math.random() * scouterNames.length)],
+            name: scouterNames[Math.floor(Math.random() * scouterNames.length)],
             gameNumber: i.toString(),
-            scouterRole: 'scouter',
             matchNumber: i.toString(),
             teamScouted: team,
+            role: 'scouter',
             autoZoneType: Math.random() > 0.5 ? 'SMALL' : 'BIG',
             autoMobility_Leave: autoMobility,
             autoOpenGate: Math.random() > 0.8,

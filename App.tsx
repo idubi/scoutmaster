@@ -7,7 +7,7 @@ import TeleOpBinding from './components/teleop/TeleOpBinding';
 import SummaryBinding from './components/summary/SummaryBinding';
 import AdminBinding from './components/admin/AdminBinding';
 import { Layout } from './components/Layout';
-import { AppTranslation_EN, AppTranslation_HE } from './components/translations';
+import { AppTranslation_EN, AppTranslation_HE, AuthTranslation_EN, AuthTranslation_HE } from './components/translations';
 import { 
   ClipboardList, 
   Radio, 
@@ -17,13 +17,29 @@ import {
   X
 } from 'lucide-react';
 
-// const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbz-z9L5TuZzrvAmIPWJeUkcT4eNuxSUoEUZOywdYIpQZ6KvKd0pbHuYuNOCkeMCbsnu/exec';
-// const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
-const GOOGLE_SHEET_URL =  'https://script.google.com/macros/s/AKfycbyfFhppWOajluuUoplfPIr6JVNePV87iU6ypWECrcO3MtJD8aDiHqiA4wK3XBZfpAqh/exec'
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
 const SPREADSHEET_ID = '1pA-8L0iNw4WJqKXqVHcXLoAUxZDVrJHl_8bYR7pg64Y';
 
-const SHEET_NAME = 'Form_Responses'; // Set your sheet name here
+const SHEET_NAME = 'liortestmapping'; // Set your sheet name here
 
+const ALL_HEADERS = [
+  // Hebrew Headers (Matching demo-table order)
+  'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', 'צבע ברית', 'אוטונומי - מיקום', 
+  'אוטונומי - נסע מהמקום', 'אוטונומי - כדור מנוקד', 'אוטונומי - כדורים שהוחטאו', 
+  'הרובוט עשה leave?', 'טלאופ - כדור מנוקד', 'טלאופ - חניה', 'טווח ירי', 'איסוף ', 
+  'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)',
+  // Internal App Headers
+  'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
+  'gameNumber', 'allianceColor', 'matchNumber', 'teamScouted', 'role', 'autoZoneType', 
+  'autoMobility_Leave', 
+  'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
+  'teleBallHit', 'teleSmallTriangle_Long', 'teleBigTriangle_Short',
+  'teleBallMiss',
+  'teleFieldAwareness',
+  'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
+  'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
+  'teleHumanPlayer', 'teleFloor', 'teleComments', 'teleTotalScore', 'aiAnalysis', 'recordType', 'targetSheetId'
+];
 
 const generateGUID = () => {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -45,11 +61,30 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(false);
   const [initStatus, setInitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error' | 'success'>('idle');
-  const [lastScouterName, setLastScouterName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [lastMatchNumber, setLastMatchNumber] = useState('1');
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [isNavExpanded, setIsNavExpanded] = useState(false);
 
   const t = language === Language.HE ? AppTranslation_HE : AppTranslation_EN;
+
+  const checkDuplicate = (historyData: SpreadsheetRow[], team: string, match: string, name: string) => {
+    return historyData.some(row => {
+      const rowTeam = row['מספר קבוצה'] || row.teamScouted;
+      const rowMatch = row['מספר מקצה'] || row.gameNumber || row.matchNumber;
+      const rowName = row['שם הסקאוטר'] || row.name;
+      
+      return String(rowTeam) === String(team) && 
+             String(rowMatch) === String(match) &&
+             String(rowName).trim().toLowerCase() === String(name).trim().toLowerCase();
+    });
+  };
+
+  React.useEffect(() => {
+    fetchHistory();
+  }, []);
 
   const handleLogout = () => {
     setUser(null);
@@ -58,24 +93,6 @@ const App: React.FC = () => {
 
   const syncToSpreadsheet = async (data: Partial<SpreadsheetRow>) => {
     setSyncStatus('syncing');
-    const ALL_HEADERS = [
-      // Hebrew Headers (Matching demo-table order)
-      'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', 'צבע ברית', '.', 'אוטונומי - מיקום', 
-      'אוטונומי - נסע מהמקום', 'אוטונומי - כדור מנוקד', 'אוטונומי - כדורים שהוחטאו', 
-      'הרובוט עשה leave?', 'טלאופ - כדור מנוקד', 'טלאופ - חניה', 'טווח ירי', 'איסוף ', 
-      'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)',
-      // Internal App Headers
-      'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'scouterName', 
-      'gameNumber', 'scouterRole', 'allianceColor', 'matchNumber', 'teamScouted', 'autoZoneType', 
-      'autoMobility_Leave', 
-      'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
-      'teleBallHit', 'teleSmallTriangle_Long', 'teleBigTriangle_Short',
-      'teleBallMiss',
-      'teleFieldAwareness',
-      'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
-      'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
-      'teleHumanPlayer', 'teleFloor', 'teleComments', 'teleTotalScore', 'aiAnalysis', 'recordType', 'targetSheetId'
-    ];
 
     const payload = { ...data, targetSheetId: SPREADSHEET_ID, sheetName: SHEET_NAME, headers: ALL_HEADERS };
 
@@ -100,21 +117,67 @@ const App: React.FC = () => {
       console.log('Fetching history from proxy for sheet:', SHEET_NAME);
       const response = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=${SHEET_NAME}`);
       if (response.ok) {
-        const result = await response.json();
-        console.log('History data received:', result);
-        const dataArray = Array.isArray(result) ? result : (result.data && Array.isArray(result.data) ? result.data : []);
-        setHistory(dataArray);
+        const text = await response.text();
+        // Check for specific Google Apps Script errors that mean "empty sheet"
+        if (text.includes("Der Bereich muss mindestens 1 Spalte enthalten") || 
+            text.includes("The range must contain at least one column")) {
+          console.warn('Sheet is empty or missing headers. Setting history to empty array.');
+          setHistory([]);
+          return;
+        }
+
+        try {
+          const result = JSON.parse(text);
+          console.log('History data received:', result);
+          const dataArray = Array.isArray(result) ? result : (result.data && Array.isArray(result.data) ? result.data : []);
+          setHistory(dataArray);
+        } catch (parseError) {
+          console.error('Failed to parse history JSON:', text);
+          setHistory([]);
+        }
       } else {
         console.error('Fetch history failed with status:', response.status);
+        setHistory([]);
       }
     } catch (error) {
       console.error('Fetch history error:', error);
+      setHistory([]);
     } finally {
       setIsFetchingHistory(false);
     }
   };
 
-  const handleAuthSubmit = (userData: User, mode?: 'investigate' | 'manage') => {
+  const handleAuthSubmit = async (userData: User, mode?: 'investigate' | 'manage') => {
+    setAuthError(null);
+    
+    if (userData.role === 'scouter') {
+      setIsCheckingAuth(true);
+      try {
+        // Fetch latest history to ensure fresh duplicate check
+        const response = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=${SHEET_NAME}`);
+        if (response.ok) {
+          const text = await response.text();
+          const result = JSON.parse(text);
+          const latestHistory = Array.isArray(result) ? result : (result.data && Array.isArray(result.data) ? result.data : []);
+          setHistory(latestHistory);
+
+          if (checkDuplicate(latestHistory, userData.teamScouted, userData.gameNumber, userData.name)) {
+            const authT: any = language === Language.HE ? AuthTranslation_HE : AuthTranslation_EN;
+            const errorMsg = authT.duplicateError
+              .replace('{team}', userData.teamScouted)
+              .replace('{match}', userData.gameNumber)
+              .replace('{name}', userData.name);
+            setAuthError(errorMsg);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Auth duplicate check failed:', e);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    }
+
     const sessionStartTime = Date.now();
     const sessionId = generateGUID();
     const enrichedUser: User = { ...userData, sessionId, sessionStartTime };
@@ -133,10 +196,10 @@ const App: React.FC = () => {
         sessionId,
         timestamp: new Date(sessionStartTime).toLocaleString(),
         sessionStartTime: new Date(sessionStartTime).toISOString(),
-        scouterName: enrichedUser.name,
+        name: enrichedUser.name,
         gameNumber: enrichedUser.gameNumber,
-        scouterRole: enrichedUser.scouterRole || enrichedUser.role,
         allianceColor: enrichedUser.allianceColor || '',
+        role: enrichedUser.role,
         recordType: 'SESSION_START',
         // Hebrew Mapping for Session Start
         'Timestamp': new Date(sessionStartTime).toISOString(),
@@ -144,7 +207,6 @@ const App: React.FC = () => {
         'מספר קבוצה': enrichedUser.teamScouted,
         'מספר מקצה': enrichedUser.gameNumber,
         'צבע ברית': enrichedUser.allianceColor || '',
-        '.': '',
         'אוטונומי - מיקום': '',
         'אוטונומי - נסע מהמקום': '',
         'אוטונומי - כדור מנוקד': 0,
@@ -179,13 +241,35 @@ const App: React.FC = () => {
         body: JSON.stringify({
           targetSheetId: SPREADSHEET_ID,
           oldSheetName: SHEET_NAME,
-          newSheetName: newSheetName
+          newSheetName: newSheetName,
+          headers: ALL_HEADERS
         })
       });
 
       if (response.ok) {
+        // Proactively ensure headers are in the new sheet by sending a dummy sync
+        // This helps if the script's 'init' action doesn't handle headers correctly
+        try {
+          await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              targetSheetId: SPREADSHEET_ID,
+              sheetName: SHEET_NAME,
+              headers: ALL_HEADERS,
+              recordType: 'INIT_MARKER',
+              timestamp: dayjs().toISOString(),
+              name: 'SYSTEM',
+              role: 'admin'
+            })
+          });
+        } catch (syncError) {
+          console.warn('Proactive header sync failed, but init succeeded:', syncError);
+        }
+
         setInitStatus('success');
         setTimeout(() => setInitStatus('idle'), 3000);
+        fetchHistory(); // Refresh history
       } else {
         setInitStatus('error');
       }
@@ -203,8 +287,11 @@ const App: React.FC = () => {
         return <AuthBinding 
           onSubmit={handleAuthSubmit} 
           language={language} 
-          initialName={lastScouterName}
+          initialName={lastName}
           initialMatchNumber={lastMatchNumber}
+          history={history}
+          isChecking={isCheckingAuth}
+          externalError={authError}
         />;
       case ScoutingPhase.AUTONOMOUS: 
         return <AutoBinding 
@@ -240,14 +327,43 @@ const App: React.FC = () => {
           teleop={teleopData!} 
           user={user!}
           targetSheetId={SPREADSHEET_ID}
+          error={summaryError}
           onFinish={async (data) => {
-            await syncToSpreadsheet(data);
+            setSummaryError(null);
+            // Final duplicate check before sync
+            setIsFetchingHistory(true);
+            try {
+              const response = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=${SHEET_NAME}`);
+              if (response.ok) {
+                const text = await response.text();
+                const result = JSON.parse(text);
+                const latestHistory = Array.isArray(result) ? result : (result.data && Array.isArray(result.data) ? result.data : []);
+                setHistory(latestHistory);
+
+                if (checkDuplicate(latestHistory, data.teamScouted, data.matchNumber, data.name)) {
+                  const authT: any = language === Language.HE ? AuthTranslation_HE : AuthTranslation_EN;
+                  const errorMsg = authT.duplicateError
+                    .replace('{team}', data.teamScouted)
+                    .replace('{match}', data.matchNumber)
+                    .replace('{name}', data.name);
+                  setSummaryError(errorMsg);
+                  return;
+                }
+              }
+            } catch (e) {
+              console.error('Final duplicate check failed:', e);
+            } finally {
+              setIsFetchingHistory(false);
+            }
+
+            await syncToSpreadsheet({ ...data, role: user.role });
             if (user) {
-              setLastScouterName(user.name);
+              setLastName(user.name);
               const currentMatch = parseInt(user.gameNumber);
               setLastMatchNumber(isNaN(currentMatch) ? user.gameNumber : (currentMatch + 1).toString());
             }
             setUser(null); setAutoData(null); setTeleopData(null); setPhase(ScoutingPhase.AUTH);
+            setSummaryError(null);
           }} 
           onBack={() => setPhase(ScoutingPhase.TELEOP)} 
           onLogout={handleLogout}
@@ -327,8 +443,9 @@ const App: React.FC = () => {
         return <AuthBinding 
           onSubmit={handleAuthSubmit} 
           language={language} 
-          initialName={lastScouterName}
+          initialName={lastName}
           initialMatchNumber={lastMatchNumber}
+          history={history}
         />;
     }
   };

@@ -18,7 +18,6 @@ export interface User {
   gameNumber: string; // The match/game number
   role: 'scouter' | 'admin' | 'guest';
   allianceColor?: 'Red' | 'Blue';
-  scouterRole?: 'Small Triangle' | 'Near Big Goal';
   sessionId?: string;
   sessionStartTime?: number;
 }
@@ -74,12 +73,12 @@ export interface SpreadsheetRow {
   timestamp: string;
   sessionStartTime: string;
   sessionEndTime?: string;
-  scouterName: string;
+  name: string;
   gameNumber: string;
-  scouterRole: string;
   allianceColor?: string;
   matchNumber: string;
   teamScouted: string;
+  role?: string;
   autoZoneType: string;
   autoMobility_Leave: boolean;
   autoOpenGate: boolean;

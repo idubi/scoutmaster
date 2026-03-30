@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
 
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyfFhppWOajluuUoplfPIr6JVNePV87iU6ypWECrcO3MtJD8aDiHqiA4wK3XBZfpAqh/exec';
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
 
 
 async function startServer() {
@@ -25,6 +25,11 @@ async function startServer() {
       const text = await response.text();
 
       if (response.ok) {
+        if (text.includes("Der Bereich muss mindestens 1 Spalte enthalten") || 
+            text.includes("The range must contain at least one column")) {
+          console.warn("Proxy: Sheet is empty or missing headers. Returning empty array.");
+          return res.json([]);
+        }
         try {
           const data = JSON.parse(text);
           res.json(data);
@@ -64,6 +69,14 @@ async function startServer() {
       
       const responseText = await response.text();
       console.log(`Proxy: Google Response: ${responseText}`);
+      
+      if (responseText.includes("Original sheet not found")) {
+        return res.status(404).json({ 
+          error: "Sheet not found",
+          message: `The sheet "${sheetName}" was not found in the spreadsheet.`
+        });
+      }
+      
       res.status(response.status).send(responseText);
     } catch (error) {
       console.error("Proxy sync error:", error);
@@ -86,13 +99,22 @@ async function startServer() {
           action: 'init',
           targetSheetId,
           oldSheetName,
-          newSheetName
+          newSheetName,
+          headers: req.body.headers
         }),
         redirect: 'follow'
       });
       
       const responseText = await response.text();
       console.log(`Proxy: Google Response: ${responseText}`);
+      
+      if (responseText.includes("Original sheet not found")) {
+        return res.status(404).json({ 
+          error: "Sheet not found",
+          message: `The sheet "${oldSheetName}" was not found in the spreadsheet.`
+        });
+      }
+      
       res.status(response.status).send(responseText);
     } catch (error) {
       console.error("Proxy init error:", error);

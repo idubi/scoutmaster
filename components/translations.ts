@@ -19,8 +19,8 @@ export const AuthTranslation_EN = {
   subtitle: "Setup your field intelligence parameters.",
   matchStart: "Match Start",
   matchNumber: "Match Number",
-  scouterName: "Scouter",
-  adminName: "admin name",
+  name: "Name",
+  adminName: "Admin Name",
   teamNumber: "Team #",
   accessLevel: "Mode",
   scouter: "Scouter",
@@ -31,9 +31,7 @@ export const AuthTranslation_EN = {
   teamColor: "Team Color",
   red: "Red",
   blue: "Blue",
-  scouterRole: "Scouter Role",
-  smallTriangle: "Small Triangle",
-  nearBigGoal: "Near Big Goal"
+  duplicateError: "Data already exists for {name} on Team {team} in Match {match}"
 };
 
 export const AuthTranslation_HE = {
@@ -41,7 +39,7 @@ export const AuthTranslation_HE = {
   subtitle: "הגדר פרמטרים להתחלת משחק.",
   matchStart: "התחלת משחק",
   matchNumber: "מספר משחק",
-  scouterName: "סקאוטר",
+  name: "שם",
   adminName: "שם מנהל",
   teamNumber: "מספר קבוצה",
   accessLevel: "מצב",
@@ -53,9 +51,7 @@ export const AuthTranslation_HE = {
   teamColor: "צבע ברית",
   red: "אדום",
   blue: "כחול",
-  scouterRole: "תפקיד סקאוטר",
-  smallTriangle: "משולש קטן",
-  nearBigGoal: "שער גדול קרוב"
+  duplicateError: "כבר קיים דיווח עבור {name} בקבוצה {team} במקצה {match}"
 };
 
 export const AutoTranslation_EN = {

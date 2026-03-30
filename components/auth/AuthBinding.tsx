@@ -1,30 +1,40 @@
 
 import React, { useState } from 'react';
-import { User, Language } from '../../types';
+import { User, Language, SpreadsheetRow } from '../../types';
 import AuthForm from './AuthForm';
+import { AuthTranslation_EN, AuthTranslation_HE } from '../translations';
 
 interface AuthBindingProps {
   onSubmit: (user: User, mode?: 'investigate' | 'manage') => void;
   language: Language;
   initialName?: string;
   initialMatchNumber?: string;
+  history: SpreadsheetRow[];
+  isChecking?: boolean;
+  externalError?: string | null;
 }
 
 const AuthBinding: React.FC<AuthBindingProps> = ({ 
   onSubmit, 
   language, 
   initialName = '',
-  initialMatchNumber = '' 
+  initialMatchNumber = '',
+  history,
+  isChecking = false,
+  externalError = null
 }) => {
   const [name, setName] = useState(initialName);
   const [teamScouted, setTeamScouted] = useState('');
   const [gameNumber, setGameNumber] = useState(initialMatchNumber);
   const [role, setRole] = useState<'scouter' | 'admin'>('scouter');
   const [allianceColor, setAllianceColor] = useState<'Red' | 'Blue'>('Red');
-  const [scouterRole, setScouterRole] = useState<'Small Triangle' | 'Near Big Goal'>('Small Triangle');
+  const [error, setError] = useState<string | null>(null);
+
+  const t: any = language === Language.HE ? AuthTranslation_HE : AuthTranslation_EN;
 
   const handleRoleChange = (newRole: 'scouter' | 'admin') => {
     setRole(newRole);
+    setError(null);
     if (newRole === 'admin') {
       setTeamScouted('');
       setGameNumber('');
@@ -33,6 +43,8 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
 
   const handleSubmit = (e: React.FormEvent, mode?: 'investigate' | 'manage') => {
     e.preventDefault();
+    setError(null);
+
     if (role === 'admin') {
       onSubmit({ 
         name: name || 'Admin', 
@@ -41,9 +53,11 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
         role 
       }, mode);
     } else if (name && teamScouted && gameNumber) {
-      onSubmit({ name, teamScouted, gameNumber, role, allianceColor, scouterRole });
+      onSubmit({ name, teamScouted, gameNumber, role, allianceColor });
     }
   };
+
+  const displayError = error || externalError;
 
   return (
     <AuthForm 
@@ -53,8 +67,9 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
       gameNumber={gameNumber} setGameNumber={setGameNumber}
       role={role} setRole={handleRoleChange}
       allianceColor={allianceColor} setAllianceColor={setAllianceColor}
-      scouterRole={scouterRole} setScouterRole={setScouterRole}
       onSubmit={handleSubmit}
+      error={displayError}
+      isChecking={isChecking}
     />
   );
 };

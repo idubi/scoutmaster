@@ -12,9 +12,10 @@ interface SummaryBindingProps {
   onBack: () => void;
   onLogout: () => void;
   language: Language;
+  error?: string | null;
 }
 
-const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, targetSheetId, onFinish, onBack, onLogout, language }) => {
+const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, targetSheetId, onFinish, onBack, onLogout, language, error }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
 
@@ -51,12 +52,12 @@ const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, tar
       timestamp: new Date().toLocaleString(),
       sessionStartTime: user.sessionStartTime ? new Date(user.sessionStartTime).toISOString() : '',
       sessionEndTime: new Date().toISOString(),
-      scouterName: user.name,
+      name: user.name,
       gameNumber: user.gameNumber,
-      scouterRole: user.scouterRole || user.role,
       allianceColor: user.allianceColor || '',
       matchNumber: auto.matchNumber,
       teamScouted: auto.teamScouted,
+      role: user.role,
       autoZoneType: auto.zoneType,
       autoMobility_Leave: auto.leave,
       autoOpenGate: auto.openGate,
@@ -94,7 +95,6 @@ const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, tar
       'מספר קבוצה': auto.teamScouted,
       'מספר מקצה': auto.matchNumber,
       'צבע ברית': user.allianceColor || '',
-      '.': '',
       'אוטונומי - מיקום': auto.zoneType === 'big' ? 'משולש גדול' : (auto.zoneType === 'small' ? 'משולש קטן' : auto.zoneType),
       'אוטונומי - נסע מהמקום': auto.leave ? 'כן' : 'לא',
       'אוטונומי - כדור מנוקד': auto.ballsSide,
@@ -121,6 +121,7 @@ const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, tar
       onFinish={finalize} 
       onGenerateAi={generateAi} 
       onLogout={onLogout}
+      error={error}
     />
   );
 };

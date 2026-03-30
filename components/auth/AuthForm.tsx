@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, UserCircle2, Hash, Zap } from 'lucide-react';
+import { Users, User, Hash } from 'lucide-react';
 import { Language } from '../../types';
 import { AuthTranslation_EN, AuthTranslation_HE } from '../translations';
 
@@ -9,15 +9,15 @@ interface AuthFormProps {
   gameNumber: string;
   role: 'scouter' | 'admin';
   allianceColor: 'Red' | 'Blue';
-  scouterRole: 'Small Triangle' | 'Near Big Goal';
   setName: (v: string) => void;
   setTeamScouted: (v: string) => void;
   setGameNumber: (v: string) => void;
   setRole: (v: 'scouter' | 'admin') => void;
   setAllianceColor: (v: 'Red' | 'Blue') => void;
-  setScouterRole: (v: 'Small Triangle' | 'Near Big Goal') => void;
   onSubmit: (e: React.FormEvent, mode?: 'investigate' | 'manage') => void;
   language: Language;
+  error?: string | null;
+  isChecking?: boolean;
 }
 
 const AuthForm: React.FC<AuthFormProps> = (props) => {
@@ -25,24 +25,27 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
   const isRTL = props.language === Language.HE;
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-[2rem] p-6 shadow-2xl border border-slate-200 font-sans">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-indigo-600/10 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-100 shadow-sm">
-          <Zap size={32} />
-        </div>
-        <h2 className={`text-2xl font-black text-slate-900 uppercase tracking-tighter ${isRTL ? 'text-2xl' : ''}`}>{t.title}</h2>
-        <p className={`text-slate-500 font-medium ${isRTL ? 'text-base' : 'text-sm'}`}>{t.subtitle}</p>
+    <div className="max-w-md mx-auto bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 font-sans">
+      <div className="text-center mb-10">
+        <h2 className={`text-3xl font-black text-[#1a1c2e] uppercase tracking-tight mb-2 ${isRTL ? 'text-2xl' : ''}`}>{t.title}</h2>
+        <p className={`text-slate-400 font-semibold ${isRTL ? 'text-base' : 'text-sm'}`}>{t.subtitle}</p>
       </div>
 
-      <form onSubmit={props.onSubmit} className="space-y-4">
-        <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+      {props.error && (
+        <div className={`mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 font-bold text-center animate-in fade-in slide-in-from-top-2 ${isRTL ? 'text-sm' : 'text-xs'}`}>
+          {props.error}
+        </div>
+      )}
+
+      <form onSubmit={props.onSubmit} className="space-y-6">
+        <div className="space-y-4">
           <div className="relative group">
-            <Hash className={`absolute ${isRTL ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors`} size={18} />
+            <Hash className={`absolute ${isRTL ? 'right-5' : 'left-5'} top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors`} size={20} />
             <input
               type="text" 
               inputMode="numeric"
               disabled={props.role === 'admin'}
-              className={`w-full bg-slate-50 border border-slate-200 rounded-xl py-4 ${isRTL ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'} text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400 font-bold ${isRTL ? 'text-base' : 'text-sm'} ${props.role === 'admin' ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`}
+              className={`w-full bg-[#f8faff] border border-slate-100 rounded-2xl py-5 ${isRTL ? 'pr-14 pl-5 text-right' : 'pl-14 pr-5 text-left'} text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-300 font-bold ${isRTL ? 'text-lg' : 'text-base'} ${props.role === 'admin' ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}`}
               placeholder={t.matchNumber}
               value={props.role === 'admin' ? '' : props.gameNumber}
               onChange={(e) => props.setGameNumber(e.target.value)}
@@ -50,23 +53,23 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
           </div>
 
           <div className="relative group">
-            <UserCircle2 className={`absolute ${isRTL ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors`} size={18} />
+            <User className={`absolute ${isRTL ? 'right-5' : 'left-5'} top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors`} size={20} />
             <input
               type="text"
-              className={`w-full bg-slate-50 border border-slate-200 rounded-xl py-4 ${isRTL ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'} text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400 font-bold ${isRTL ? 'text-base' : 'text-sm'}`}
-              placeholder={props.role === 'admin' ? t.adminName : t.scouterName}
+              className={`w-full bg-[#f8faff] border border-slate-100 rounded-2xl py-5 ${isRTL ? 'pr-14 pl-5 text-right' : 'pl-14 pr-5 text-left'} text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-300 font-bold ${isRTL ? 'text-lg' : 'text-base'}`}
+              placeholder={props.role === 'admin' ? t.adminName : t.name}
               value={props.name}
               onChange={(e) => props.setName(e.target.value)}
             />
           </div>
 
           <div className="relative group">
-            <Users className={`absolute ${isRTL ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors`} size={18} />
+            <Users className={`absolute ${isRTL ? 'right-5' : 'left-5'} top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors`} size={20} />
             <input
               type="text" 
               inputMode="numeric"
               disabled={props.role === 'admin'}
-              className={`w-full bg-slate-50 border border-slate-200 rounded-xl py-4 ${isRTL ? 'pr-12 pl-4 text-right' : 'pl-12 pr-4 text-left'} text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400 font-bold ${isRTL ? 'text-base' : 'text-sm'} ${props.role === 'admin' ? 'opacity-50 cursor-not-allowed bg-slate-100' : ''}`}
+              className={`w-full bg-[#f8faff] border border-slate-100 rounded-2xl py-5 ${isRTL ? 'pr-14 pl-5 text-right' : 'pl-14 pr-5 text-left'} text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-300 font-bold ${isRTL ? 'text-lg' : 'text-base'} ${props.role === 'admin' ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}`}
               placeholder={t.teamNumber}
               value={props.role === 'admin' ? '' : props.teamScouted}
               onChange={(e) => props.setTeamScouted(e.target.value)}
@@ -75,42 +78,19 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
         </div>
 
         {props.role === 'scouter' && (
-          <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-            <span className={`block font-black text-slate-400 uppercase tracking-widest text-center mb-3 ${isRTL ? 'text-[12px]' : 'text-[10px]'}`}>{t.teamColor}</span>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="pt-2">
+            <span className={`block font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-4 ${isRTL ? 'text-[11px]' : 'text-[10px]'}`}>{t.teamColor}</span>
+            <div className="grid grid-cols-2 gap-4">
               {[ 
-                { key: 'Red', label: t.red, color: 'bg-red-50 text-red-600 border-red-200', activeColor: 'bg-red-600 border-red-500 text-white' }, 
-                { key: 'Blue', label: t.blue, color: 'bg-blue-50 text-blue-600 border-blue-200', activeColor: 'bg-blue-600 border-blue-500 text-white' }
+                { key: 'Red', label: t.red, activeColor: 'bg-[#e53935] border-[#e53935] text-white shadow-lg shadow-red-500/20', inactiveColor: 'bg-red-50 text-red-600 border-red-100' }, 
+                { key: 'Blue', label: t.blue, activeColor: 'bg-[#1e88e5] border-[#1e88e5] text-white shadow-lg shadow-blue-500/20', inactiveColor: 'bg-[#e3f2fd] text-[#1e88e5] border-[#bbdefb]' }
               ].map((pos) => (
                 <button
                   key={pos.key} type="button" onClick={() => props.setAllianceColor(pos.key as any)}
-                  className={`py-4 px-4 rounded-xl border-2 font-black uppercase tracking-widest transition-all ${
+                  className={`py-5 px-4 rounded-2xl border-2 font-black uppercase tracking-[0.2em] transition-all transform active:scale-[0.98] ${
                     props.allianceColor === pos.key 
-                    ? pos.activeColor + ' shadow-lg scale-[1.02]' 
-                    : pos.color
-                  } ${isRTL ? 'text-sm' : 'text-xs'}`}
-                >
-                  {pos.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {props.role === 'scouter' && (
-          <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-            <span className={`block font-black text-slate-400 uppercase tracking-widest text-center mb-3 ${isRTL ? 'text-[12px]' : 'text-[10px]'}`}>{t.scouterRole}</span>
-            <div className="grid grid-cols-2 gap-3">
-              {[ 
-                { key: 'Small Triangle', label: t.smallTriangle }, 
-                { key: 'Near Big Goal', label: t.nearBigGoal }
-              ].map((pos) => (
-                <button
-                  key={pos.key} type="button" onClick={() => props.setScouterRole(pos.key as any)}
-                  className={`py-4 px-4 rounded-xl border-2 font-black uppercase tracking-widest transition-all ${
-                    props.scouterRole === pos.key 
-                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg scale-[1.02]' 
-                    : 'bg-slate-50 text-slate-600 border-slate-200'
+                    ? pos.activeColor 
+                    : pos.inactiveColor
                   } ${isRTL ? 'text-sm' : 'text-xs'}`}
                 >
                   {pos.label}
@@ -121,18 +101,18 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
         )}
 
         <div className="pt-2">
-          <span className={`block font-black text-slate-400 uppercase tracking-widest text-center mb-3 ${isRTL ? 'text-[12px]' : 'text-[10px]'}`}>{t.accessLevel}</span>
-          <div className="grid grid-cols-2 gap-3">
+          <span className={`block font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-4 ${isRTL ? 'text-[11px]' : 'text-[10px]'}`}>{t.accessLevel}</span>
+          <div className="grid grid-cols-2 gap-4">
             {[ 
-              { key: 'scouter', label: t.scouter }, 
-              { key: 'admin', label: t.admin } 
+              { key: 'scouter', label: t.scouter, activeColor: 'bg-[#00a67e] border-[#00a67e] text-white shadow-lg shadow-emerald-500/20', inactiveColor: 'bg-[#e8f5e9] border-[#c8e6c9] text-[#2e7d32]' }, 
+              { key: 'admin', label: t.admin, activeColor: 'bg-[#00a67e] border-[#00a67e] text-white shadow-lg shadow-emerald-500/20', inactiveColor: 'bg-[#e8f5e9] border-[#c8e6c9] text-[#2e7d32]' } 
             ].map((r) => (
               <button
                 key={r.key} type="button" onClick={() => props.setRole(r.key as 'scouter' | 'admin')}
-                className={`py-3.5 px-4 rounded-xl border-2 font-black uppercase tracking-widest transition-all ${
+                className={`py-4 px-4 rounded-2xl border-2 font-black uppercase tracking-[0.2em] transition-all transform active:scale-[0.98] ${
                   props.role === r.key 
-                  ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' 
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                  ? r.activeColor 
+                  : r.inactiveColor
                 } ${isRTL ? 'text-xs' : 'text-[10px]'}`}
               >
                 {r.label}
@@ -142,18 +122,20 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
         </div>
 
         {props.role === 'admin' ? (
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="grid grid-cols-2 gap-4 mt-6">
             <button 
               type="button"
+              disabled={props.isChecking}
               onClick={(e) => props.onSubmit(e as any, 'investigate')}
-              className={`bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-[0.1em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 transform active:scale-[0.98] border-b-4 border-indigo-800 ${isRTL ? 'text-base' : 'text-sm'}`}
+              className={`bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 transform active:scale-[0.98] ${isRTL ? 'text-base' : 'text-sm'} ${props.isChecking ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {t.investigate}
             </button>
             <button 
               type="button"
+              disabled={props.isChecking}
               onClick={(e) => props.onSubmit(e as any, 'manage')}
-              className={`bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-[0.1em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 transform active:scale-[0.98] border-b-4 border-indigo-800 ${isRTL ? 'text-base' : 'text-sm'}`}
+              className={`bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 transform active:scale-[0.98] ${isRTL ? 'text-base' : 'text-sm'} ${props.isChecking ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {t.manage}
             </button>
@@ -161,9 +143,15 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
         ) : (
           <button 
             type="submit" 
-            className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-[0.3em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 transform active:scale-[0.98] mt-4 border-b-4 border-indigo-800 ${isRTL ? 'text-base' : 'text-sm'}`}
+            disabled={props.isChecking}
+            className={`w-full bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-6 rounded-2xl transition-all shadow-2xl shadow-indigo-500/30 transform active:scale-[0.98] mt-6 ${isRTL ? 'text-lg' : 'text-base'} ${props.isChecking ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            {t.begin}
+            {props.isChecking ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>{isRTL ? 'בודק...' : 'Checking...'}</span>
+              </div>
+            ) : t.begin}
           </button>
         )}
       </form>

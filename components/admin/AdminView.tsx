@@ -40,6 +40,8 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
   const [isInvestigationDropdownOpen, setIsInvestigationDropdownOpen] = useState(false);
   const [gameViewTeam, setGameViewTeam] = useState<string>('');
   const [gameViewMatch, setGameViewMatch] = useState<string>('');
+  const [prevGameViewMatch, setPrevGameViewMatch] = useState<string>('');
+  const [gameViewError, setGameViewError] = useState<string | null>(null);
   const [isGameTeamDropdownOpen, setIsGameTeamDropdownOpen] = useState(false);
   const [isGameMatchDropdownOpen, setIsGameMatchDropdownOpen] = useState(false);
   
@@ -110,15 +112,20 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
   }, [history]);
 
   const uniqueMatches = useMemo(() => {
-    const matches = history
-      .map(row => (row.matchNumber || row.gameNumber || '').toString().trim())
-      .filter(m => !!m);
-    return Array.from(new Set(matches)).sort((a: string, b: string) => {
-      const numA = parseInt(a.replace(/\D/g, ''));
-      const numB = parseInt(b.replace(/\D/g, ''));
-      if (isNaN(numA) || isNaN(numB)) return a.localeCompare(b);
-      return numA - numB;
-    });
+    try {
+      const matches = history
+        .map(row => (row.matchNumber || row.gameNumber || '').toString().trim())
+        .filter(m => !!m);
+      return Array.from(new Set(matches)).sort((a: string, b: string) => {
+        const numA = parseInt(a.replace(/\D/g, '')) || 0;
+        const numB = parseInt(b.replace(/\D/g, '')) || 0;
+        if (numA === 0 && numB === 0) return a.localeCompare(b);
+        return numA - numB;
+      });
+    } catch (err) {
+      console.error("Error calculating unique matches:", err);
+      return [];
+    }
   }, [history]);
 
   useEffect(() => {
@@ -1047,7 +1054,9 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
                               <button 
                                 key={match}
                                 onClick={() => {
+                                  setPrevGameViewMatch(gameViewMatch);
                                   setGameViewMatch(match);
+                                  setGameViewError(null);
                                   setIsGameMatchDropdownOpen(false);
                                 }}
                                 className={`w-full flex items-center justify-between p-2 hover:bg-slate-700 rounded-lg transition-colors ${gameViewMatch === match ? 'bg-indigo-600' : ''}`}
@@ -1063,142 +1072,161 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
                   </div>
                 </div>
 
-                {/* Table */}
-                <div className="w-full overflow-x-auto border-4 border-black rounded-2xl">
-                  <table className="w-full border-collapse bg-white text-black font-bold" dir={isRTL ? 'rtl' : 'ltr'}>
-                    <thead>
-                      <tr className="border-b-4 border-black">
-                        <th className="p-3 bg-[#f3e8ff] border-e-4 border-black w-48 text-lg text-start">Heat Number</th>
-                        <th colSpan={4} className="p-3 text-center text-2xl font-black">{t.match} {gameViewMatch}</th>
-                      </tr>
-                      <tr className="border-b-4 border-black">
-                        <th className="p-3 bg-[#f3e8ff] border-e-4 border-black text-lg text-start">{t.positionLabel}</th>
-                        {[
-                          { alliance: 'Red', role: 'Small Triangle', color: 'text-red-600', bgColor: 'bg-red-50/50' },
-                          { alliance: 'Red', role: 'Near Big Goal', color: 'text-red-600', bgColor: 'bg-red-50/50' },
-                          { alliance: 'Blue', role: 'Small Triangle', color: 'text-blue-600', bgColor: 'bg-blue-50/50' },
-                          { alliance: 'Blue', role: 'Near Big Goal', color: 'text-blue-600', bgColor: 'bg-blue-50/50' }
-                        ].map((pos, i) => {
-                          const matchRows = history.filter(r => {
-                            const mNum = (r.matchNumber || r.gameNumber || '').toString().trim();
-                            return mNum === gameViewMatch.trim();
-                          });
-                          const teamRow = matchRows.find(r => 
-                            r.allianceColor === pos.alliance && 
-                            r.scouterRole === pos.role
-                          );
-                          const teamNum = teamRow?.teamScouted || '---';
-                          const roleLabel = pos.role === 'Small Triangle' 
-                            ? (isRTL ? 'משולש קטן' : 'Small Triangle') 
-                            : (isRTL ? 'שער גדול קרוב' : 'Near Big Goal');
-                          
-                          return (
-                            <th key={i} className={`p-3 text-center border-e-4 border-black last:border-e-0 text-xl font-black ${pos.color} ${pos.bgColor}`}>
-                              <div className="flex flex-col">
-                                <span className="text-2xl">{teamNum}</span>
-                                <span className="text-xs font-bold opacity-80 mt-1 uppercase tracking-tighter">{roleLabel}</span>
-                              </div>
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Data Rows */}
-                      {[
-                        { label: t.teamNumberLabel, field: 'teamScouted', type: 'value' },
-                        { label: isRTL ? 'עזיבה באוטונומי %' : 'Leave %', field: 'autoMobility_Leave', type: 'percentage' },
-                        { label: isRTL ? 'יכולות אוטונומי' : 'Auto Hits', field: 'autoBallHit', type: 'average' },
-                        { label: isRTL ? 'סוג חניה' : 'Parking Type', field: 'teleParkingFoul', type: 'parking' },
-                        { label: isRTL ? 'טווח ירי' : 'Shooting Range', field: 'teleComments', type: 'shooting' }
-                      ].map((rowDef, rowIdx) => (
-                        <tr key={rowIdx} className="border-b-4 border-black last:border-b-0">
-                          <td className="p-3 bg-[#f3e8ff] border-e-4 border-black text-lg text-start">{rowDef.label}</td>
-                          {[
-                            { alliance: 'Red', role: 'Small Triangle', bgColor: 'bg-red-50/30' },
-                            { alliance: 'Red', role: 'Near Big Goal', bgColor: 'bg-red-50/30' },
-                            { alliance: 'Blue', role: 'Small Triangle', bgColor: 'bg-blue-50/30' },
-                            { alliance: 'Blue', role: 'Near Big Goal', bgColor: 'bg-blue-50/30' }
-                          ].map((pos, i) => {
-                            const matchRows = history.filter(r => {
-                              const mNum = (r.matchNumber || r.gameNumber || '').toString().trim();
-                              return mNum === gameViewMatch.trim();
-                            });
-                            const teamMatchRows = matchRows.filter(r => 
-                              r.allianceColor === pos.alliance && 
-                              r.scouterRole === pos.role
-                            );
-                            
-                            let displayValue: React.ReactNode = '-';
-                            if (teamMatchRows.length > 0) {
-                              const row = teamMatchRows[0];
-                              if (rowDef.type === 'value') {
-                                displayValue = row[rowDef.field as keyof SpreadsheetRow] || '-';
-                              } else if (rowDef.type === 'percentage') {
-                                const count = teamMatchRows.filter(r => r.autoMobility_Leave).length;
-                                displayValue = `${((count / teamMatchRows.length) * 100).toFixed(0)}%`;
-                              } else if (rowDef.type === 'average') {
-                                const sum = teamMatchRows.reduce((acc, r) => acc + (Number(r[rowDef.field as keyof SpreadsheetRow]) || 0), 0);
-                                displayValue = (sum / teamMatchRows.length).toFixed(1);
-                              } else if (rowDef.type === 'parking') {
-                                const isElevator = row.teleParkingFoul;
-                                displayValue = isElevator ? (isRTL ? 'מעלית' : 'Elevator') : (isRTL ? 'לא מעלית' : 'No Elevator');
-                              } else if (rowDef.type === 'shooting') {
-                                const isFar = (row.teleBallHit || 0) > 10;
-                                displayValue = isFar ? (isRTL ? 'טווח רחוק' : 'Far Range') : (isRTL ? 'טווח קרוב' : 'Short Range');
-                              }
-                            }
-
-                            return (
-                              <td key={i} className={`p-3 text-center border-e-4 border-black last:border-e-0 text-lg font-bold ${pos.bgColor}`}>
-                                {displayValue}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Summary Panel */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg" dir="ltr">
-                  <h3 className="text-white font-black uppercase tracking-widest mb-4">Alliance Performance Summary:</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <h4 className="text-red-500 font-bold uppercase text-sm tracking-widest">Red Alliance</h4>
-                      <ul className="space-y-1 text-slate-300 text-sm">
-                        {history
-                          .filter(r => {
-                            const mNum = (r.matchNumber || r.gameNumber || '').toString().trim();
-                            return mNum === gameViewMatch.trim() && r.allianceColor === 'Red';
-                          })
-                          .map(r => (
-                            <li key={r.teamScouted} className="flex items-center gap-2">
-                              <div className="w-1 h-1 bg-red-500 rounded-full" />
-                              <span>Team {r.teamScouted}: {(r.autoTotalScore || 0) + (r.teleTotalScore || 0)} pts</span>
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="text-blue-500 font-bold uppercase text-sm tracking-widest">Blue Alliance</h4>
-                      <ul className="space-y-1 text-slate-300 text-sm">
-                        {history
-                          .filter(r => {
-                            const mNum = (r.matchNumber || r.gameNumber || '').toString().trim();
-                            return mNum === gameViewMatch.trim() && r.allianceColor === 'Blue';
-                          })
-                          .map(r => (
-                            <li key={r.teamScouted} className="flex items-center gap-2">
-                              <div className="w-1 h-1 bg-blue-500 rounded-full" />
-                              <span>Team {r.teamScouted}: {(r.autoTotalScore || 0) + (r.teleTotalScore || 0)} pts</span>
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
+                {gameViewError ? (
+                  <div className="bg-rose-900/20 border-2 border-rose-500/50 rounded-2xl p-8 text-center space-y-4">
+                    <X size={48} className="mx-auto text-rose-500" />
+                    <h3 className="text-xl font-black text-white uppercase tracking-widest">{isRTL ? 'שגיאה בתצוגת המשחק' : 'Game View Error'}</h3>
+                    <p className="text-slate-400 font-bold max-w-md mx-auto">
+                      {gameViewError}
+                    </p>
+                    <button 
+                      onClick={() => {
+                        setGameViewMatch(prevGameViewMatch);
+                        setGameViewError(null);
+                      }}
+                      className="bg-white text-slate-900 px-6 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                    >
+                      {isRTL ? 'חזור לבחירה קודמת' : 'Revert to Previous'}
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {(() => {
+                      try {
+                        const matchRows = history.filter(r => {
+                          const mNum = (r.matchNumber || r.gameNumber || '').toString().trim();
+                          return mNum === (gameViewMatch || '').trim();
+                        });
+
+                        if (matchRows.length === 0 && gameViewMatch) {
+                          return (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-4 py-20">
+                              <BarChart3 size={48} className="opacity-20" />
+                              <p className="font-bold">{isRTL ? 'אין נתונים למקצה זה' : 'No data for this match'}</p>
+                            </div>
+                          );
+                        }
+
+                        const sortedMatchRows = [...matchRows].sort((a, b) => {
+                          if (a.allianceColor === b.allianceColor) {
+                            return String(a.teamScouted || '').localeCompare(String(b.teamScouted || ''));
+                          }
+                          return a.allianceColor === 'Red' ? -1 : 1;
+                        });
+
+                        return (
+                          <>
+                            {/* Table */}
+                            <div className="w-full overflow-x-auto border-4 border-black rounded-2xl">
+                              <table className="w-full border-collapse bg-white text-black font-bold" dir={isRTL ? 'rtl' : 'ltr'}>
+                                <thead>
+                                  <tr className="border-b-4 border-black">
+                                    <th className="p-3 bg-[#f3e8ff] border-e-4 border-black w-48 text-lg text-start">Heat Number</th>
+                                    <th colSpan={Math.max(1, sortedMatchRows.length)} className="p-3 text-center text-2xl font-black">{t.match} {gameViewMatch}</th>
+                                  </tr>
+                                  <tr className="border-b-4 border-black">
+                                    <th className="p-3 bg-[#f3e8ff] border-e-4 border-black text-lg text-start">Team</th>
+                                    {sortedMatchRows.map((row, i) => {
+                                      const alliance = row.allianceColor || 'Red';
+                                      const color = alliance === 'Red' ? 'text-red-600' : 'text-blue-600';
+                                      const bgColor = alliance === 'Red' ? 'bg-red-50/50' : 'bg-blue-50/50';
+                                      const teamNum = row.teamScouted || '---';
+                                      
+                                      return (
+                                        <th key={i} className={`p-3 text-center border-e-4 border-black last:border-e-0 text-xl font-black ${color} ${bgColor}`}>
+                                          <div className="flex flex-col">
+                                            <span className="text-2xl">{teamNum}</span>
+                                            <span className="text-xs font-bold opacity-80 mt-1 uppercase tracking-tighter">{alliance}</span>
+                                          </div>
+                                        </th>
+                                      );
+                                    })}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {/* Data Rows */}
+                                  {[
+                                    { label: t.teamNumberLabel, field: 'teamScouted', type: 'value' },
+                                    { label: isRTL ? 'עזיבה באוטונומי %' : 'Leave %', field: 'autoMobility_Leave', type: 'percentage' },
+                                    { label: isRTL ? 'יכולות אוטונומי' : 'Auto Hits', field: 'autoBallHit', type: 'average' },
+                                    { label: isRTL ? 'סוג חניה' : 'Parking Type', field: 'teleParkingFoul', type: 'parking' },
+                                    { label: isRTL ? 'טווח ירי' : 'Shooting Range', field: 'teleComments', type: 'shooting' }
+                                  ].map((rowDef, rowIdx) => (
+                                    <tr key={rowIdx} className="border-b-4 border-black last:border-b-0">
+                                      <td className="p-3 bg-[#f3e8ff] border-e-4 border-black text-lg text-start">{rowDef.label}</td>
+                                      {sortedMatchRows.map((row, i) => {
+                                        const alliance = row.allianceColor || 'Red';
+                                        const bgColor = alliance === 'Red' ? 'bg-red-50/30' : 'bg-blue-50/30';
+                                        
+                                        let displayValue: React.ReactNode = '-';
+                                        if (rowDef.type === 'value') {
+                                          displayValue = row[rowDef.field as keyof SpreadsheetRow] || '-';
+                                        } else if (rowDef.type === 'percentage') {
+                                          displayValue = row.autoMobility_Leave ? '100%' : '0%';
+                                        } else if (rowDef.type === 'average') {
+                                          displayValue = row[rowDef.field as keyof SpreadsheetRow] || '0';
+                                        } else if (rowDef.type === 'parking') {
+                                          const isElevator = row.teleParkingFoul;
+                                          displayValue = isElevator ? (isRTL ? 'מעלית' : 'Elevator') : (isRTL ? 'לא מעלית' : 'No Elevator');
+                                        } else if (rowDef.type === 'shooting') {
+                                          const isFar = (row.teleBallHit || 0) > 10;
+                                          displayValue = isFar ? (isRTL ? 'טווח רחוק' : 'Far Range') : (isRTL ? 'טווח קרוב' : 'Short Range');
+                                        }
+
+                                        return (
+                                          <td key={i} className={`p-3 text-center border-e-4 border-black last:border-e-0 text-lg font-bold ${bgColor}`}>
+                                            {displayValue}
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Summary Panel */}
+                            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg" dir="ltr">
+                              <h3 className="text-white font-black uppercase tracking-widest mb-4">Alliance Performance Summary:</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <h4 className="text-red-500 font-bold uppercase text-sm tracking-widest">Red Alliance</h4>
+                                  <ul className="space-y-1 text-slate-300 text-sm">
+                                    {matchRows
+                                      .filter(r => r.allianceColor === 'Red')
+                                      .map(r => (
+                                        <li key={r.teamScouted} className="flex items-center gap-2">
+                                          <div className="w-1 h-1 bg-red-500 rounded-full" />
+                                          <span>Team {r.teamScouted}: {(r.autoTotalScore || 0) + (r.teleTotalScore || 0)} pts</span>
+                                        </li>
+                                      ))}
+                                  </ul>
+                                </div>
+                                <div className="space-y-2">
+                                  <h4 className="text-blue-500 font-bold uppercase text-sm tracking-widest">Blue Alliance</h4>
+                                  <ul className="space-y-1 text-slate-300 text-sm">
+                                    {matchRows
+                                      .filter(r => r.allianceColor === 'Blue')
+                                      .map(r => (
+                                        <li key={r.teamScouted} className="flex items-center gap-2">
+                                          <div className="w-1 h-1 bg-blue-500 rounded-full" />
+                                          <span>Team {r.teamScouted}: {(r.autoTotalScore || 0) + (r.teleTotalScore || 0)} pts</span>
+                                        </li>
+                                      ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      } catch (err) {
+                        console.error("Error rendering game view:", err);
+                        setGameViewError(isRTL ? 'אירעה שגיאה בעיבוד נתוני המשחק' : 'An error occurred while processing game data');
+                        return null;
+                      }
+                    })()}
+                  </>
+                )}
               </div>
             )}
       </div>
