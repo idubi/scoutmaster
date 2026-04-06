@@ -17,7 +17,6 @@ interface AuthFormProps {
   onSubmit: (e: React.FormEvent, mode?: 'investigate' | 'manage') => void;
   language: Language;
   error?: string | null;
-  isChecking?: boolean;
 }
 
 const AuthForm: React.FC<AuthFormProps> = (props) => {
@@ -125,17 +124,15 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
           <div className="grid grid-cols-2 gap-4 mt-6">
             <button 
               type="button"
-              disabled={props.isChecking}
               onClick={(e) => props.onSubmit(e as any, 'investigate')}
-              className={`bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 transform active:scale-[0.98] ${isRTL ? 'text-base' : 'text-sm'} ${props.isChecking ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 transform active:scale-[0.98] ${isRTL ? 'text-base' : 'text-sm'}`}
             >
               {t.investigate}
             </button>
             <button 
               type="button"
-              disabled={props.isChecking}
               onClick={(e) => props.onSubmit(e as any, 'manage')}
-              className={`bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 transform active:scale-[0.98] ${isRTL ? 'text-base' : 'text-sm'} ${props.isChecking ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 transform active:scale-[0.98] ${isRTL ? 'text-base' : 'text-sm'}`}
             >
               {t.manage}
             </button>
@@ -143,15 +140,9 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
         ) : (
           <button 
             type="submit" 
-            disabled={props.isChecking}
-            className={`w-full bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-6 rounded-2xl transition-all shadow-2xl shadow-indigo-500/30 transform active:scale-[0.98] mt-6 ${isRTL ? 'text-lg' : 'text-base'} ${props.isChecking ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-6 rounded-2xl transition-all shadow-2xl shadow-indigo-500/30 transform active:scale-[0.98] mt-6 ${isRTL ? 'text-lg' : 'text-base'}`}
           >
-            {props.isChecking ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>{isRTL ? 'בודק...' : 'Checking...'}</span>
-              </div>
-            ) : t.begin}
+            {t.begin}
           </button>
         )}
       </form>

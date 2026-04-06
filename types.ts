@@ -107,7 +107,7 @@ export interface SpreadsheetRow {
   teleComments: string;
   teleTotalScore: number;
   aiAnalysis?: string;
-  recordType: 'SESSION_START' | 'MATCH_COMPLETE';
+  recordType: 'SESSION_START' | 'AUTO_COMPLETE' | 'TELEOP_COMPLETE' | 'MATCH_COMPLETE';
   targetSheetId: string;
   sheetName?: string;
   headers?: string[];

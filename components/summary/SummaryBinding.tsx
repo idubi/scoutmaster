@@ -8,7 +8,7 @@ interface SummaryBindingProps {
   teleop: TeleOpData;
   user: User;
   targetSheetId: string;
-  onFinish: (data: SpreadsheetRow) => void;
+  onFinish: (data: Partial<SpreadsheetRow>) => void;
   onBack: () => void;
   onLogout: () => void;
   language: Language;
@@ -47,66 +47,7 @@ const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, tar
   };
 
   const finalize = () => {
-    const row: SpreadsheetRow = {
-      sessionId: user.sessionId || '',
-      timestamp: new Date().toLocaleString(),
-      sessionStartTime: user.sessionStartTime ? new Date(user.sessionStartTime).toISOString() : '',
-      sessionEndTime: new Date().toISOString(),
-      name: user.name,
-      gameNumber: user.gameNumber,
-      allianceColor: user.allianceColor || '',
-      matchNumber: auto.matchNumber,
-      teamScouted: auto.teamScouted,
-      role: user.role,
-      autoZoneType: auto.zoneType,
-      autoMobility_Leave: auto.leave,
-      autoOpenGate: auto.openGate,
-      autoIntakeUsed: auto.intake,
-      autoBallHit: auto.ballsSide,
-      autoBallMiss: auto.ballsMissed,
-      autoNotes: auto.freeText,
-      autoTotalScore: auto.totalScore,
-      teleBallHit: teleop.intake,
-      teleSmallTriangle_Long: teleop.long,
-      teleBigTriangle_Short: teleop.short,
-      teleBallMiss: teleop.gateOverflow,
-      teleFieldAwareness: teleop.fieldAwareness,
-      teleLateTranslation: teleop.lateTranslation,
-      teleOverallSuccess: teleop.success,
-      teleFastRebound: teleop.fastRebound,
-      teleIsFrozen: teleop.isFrozen,
-      teleConfused: teleop.confused,
-      teleStoppedScoring: teleop.stoppedScoring,
-      teleGateFoul: teleop.gateFoul,
-      teleParkingFoul: teleop.parkingFoul,
-      teleIntakeFoul: teleop.intakeFoul,
-      teleFoulCount: (teleop.gateFoul ? 1 : 0) + (teleop.parkingFoul ? 1 : 0) + (teleop.intakeFoul ? 1 : 0),
-      teleHumanPlayer: teleop.humanPlayer,
-      teleFloor: teleop.floor,
-      teleComments: teleop.comments,
-      teleTotalScore: teleop.totalScore,
-      aiAnalysis: aiAnalysis || '',
-      recordType: 'MATCH_COMPLETE',
-      targetSheetId,
-
-      // Hebrew Mapping
-      'Timestamp': new Date().toISOString(),
-      'שם הסקאוטר': user.name,
-      'מספר קבוצה': auto.teamScouted,
-      'מספר מקצה': auto.matchNumber,
-      'צבע ברית': user.allianceColor || '',
-      'אוטונומי - מיקום': auto.zoneType === 'big' ? 'משולש גדול' : (auto.zoneType === 'small' ? 'משולש קטן' : auto.zoneType),
-      'אוטונומי - נסע מהמקום': auto.leave ? 'כן' : 'לא',
-      'אוטונומי - כדור מנוקד': auto.ballsSide,
-      'אוטונומי - כדורים שהוחטאו': auto.ballsMissed,
-      'הרובוט עשה leave?': auto.leave ? 'leave' : 'לא',
-      'טלאופ - כדור מנוקד': teleop.intake,
-      'טלאופ - חניה': teleop.liftParkingType ? 'מעלית' : (teleop.fullParkingType ? 'חניה מלאה' : 'לא מעלית'),
-      'טווח ירי': `${teleop.long > 0 ? 'משולש קטן' : ''}${teleop.long > 0 && teleop.short > 0 ? ', ' : ''}${teleop.short > 0 ? 'משולש גדול' : ''}` || 'לא ירו',
-      'איסוף ': `${teleop.floor ? 'איסוף מהרצפה' : ''}${teleop.floor && teleop.humanPlayer ? ', ' : ''}${teleop.humanPlayer ? 'איסוף מהשחקן האנושי' : ''}` || 'לא אספו',
-      'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)': teleop.comments
-    };
-    onFinish(row);
+    onFinish({ aiAnalysis: aiAnalysis || '' });
   };
 
   return (

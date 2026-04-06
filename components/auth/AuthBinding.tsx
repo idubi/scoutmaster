@@ -10,7 +10,6 @@ interface AuthBindingProps {
   initialName?: string;
   initialMatchNumber?: string;
   history: SpreadsheetRow[];
-  isChecking?: boolean;
   externalError?: string | null;
 }
 
@@ -20,7 +19,6 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
   initialName = '',
   initialMatchNumber = '',
   history,
-  isChecking = false,
   externalError = null
 }) => {
   const [name, setName] = useState(initialName);
@@ -69,7 +67,6 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
       allianceColor={allianceColor} setAllianceColor={setAllianceColor}
       onSubmit={handleSubmit}
       error={displayError}
-      isChecking={isChecking}
     />
   );
 };

@@ -64,7 +64,6 @@ const App: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [lastMatchNumber, setLastMatchNumber] = useState('1');
   const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isNavExpanded, setIsNavExpanded] = useState(false);
 
@@ -75,7 +74,11 @@ const App: React.FC = () => {
       const rowTeam = row['מספר קבוצה'] || row.teamScouted;
       const rowMatch = row['מספר מקצה'] || row.gameNumber || row.matchNumber;
       const rowName = row['שם הסקאוטר'] || row.name;
+      const rowRecordType = row['recordType'];
       
+      // Only consider it a duplicate if it's a MATCH_COMPLETE record
+      if (rowRecordType !== 'MATCH_COMPLETE') return false;
+
       return String(rowTeam) === String(team) && 
              String(rowMatch) === String(match) &&
              String(rowName).trim().toLowerCase() === String(name).trim().toLowerCase();
@@ -108,6 +111,89 @@ const App: React.FC = () => {
       console.error('Sync error:', error);
       setSyncStatus('error');
     }
+  };
+
+  const syncScoutData = async (
+    recordType: 'SESSION_START' | 'AUTO_COMPLETE' | 'TELEOP_COMPLETE' | 'MATCH_COMPLETE',
+    currentAuto?: AutoData | null,
+    currentTeleop?: TeleOpData | null,
+    currentUser?: User | null,
+    aiAnalysisText?: string | null
+  ) => {
+    const activeUser = currentUser || user;
+    if (!activeUser) return;
+
+    const row: Partial<SpreadsheetRow> = {
+      sessionId: activeUser.sessionId || '',
+      timestamp: new Date().toLocaleString(),
+      sessionStartTime: activeUser.sessionStartTime ? new Date(activeUser.sessionStartTime).toISOString() : '',
+      sessionEndTime: recordType === 'MATCH_COMPLETE' ? new Date().toISOString() : '',
+      name: activeUser.name,
+      gameNumber: activeUser.gameNumber,
+      allianceColor: activeUser.allianceColor || '',
+      matchNumber: currentAuto?.matchNumber || activeUser.gameNumber,
+      teamScouted: currentAuto?.teamScouted || activeUser.teamScouted,
+      role: activeUser.role,
+      recordType,
+      
+      // Hebrew Mapping
+      'Timestamp': new Date().toISOString(),
+      'שם הסקאוטר': activeUser.name,
+      'מספר קבוצה': currentAuto?.teamScouted || activeUser.teamScouted,
+      'מספר מקצה': currentAuto?.matchNumber || activeUser.gameNumber,
+      'צבע ברית': activeUser.allianceColor || '',
+      'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)': recordType
+    };
+
+    if (currentAuto) {
+      Object.assign(row, {
+        autoZoneType: currentAuto.zoneType,
+        autoMobility_Leave: currentAuto.leave,
+        autoOpenGate: currentAuto.openGate,
+        autoIntakeUsed: currentAuto.intake,
+        autoBallHit: currentAuto.ballsSide,
+        autoBallMiss: currentAuto.ballsMissed,
+        autoNotes: currentAuto.freeText,
+        autoTotalScore: currentAuto.totalScore,
+        'אוטונומי - מיקום': currentAuto.zoneType === 'big' ? 'משולש גדול' : (currentAuto.zoneType === 'small' ? 'משולש קטן' : currentAuto.zoneType),
+        'אוטונומי - נסע מהמקום': currentAuto.leave ? 'כן' : 'לא',
+        'אוטונומי - כדור מנוקד': currentAuto.ballsSide,
+        'אוטונומי - כדורים שהוחטאו': currentAuto.ballsMissed,
+        'הרובוט עשה leave?': currentAuto.leave ? 'leave' : 'לא',
+      });
+    }
+
+    if (currentTeleop) {
+      Object.assign(row, {
+        teleBallHit: currentTeleop.intake,
+        teleSmallTriangle_Long: currentTeleop.long,
+        teleBigTriangle_Short: currentTeleop.short,
+        teleBallMiss: currentTeleop.gateOverflow,
+        teleFieldAwareness: currentTeleop.fieldAwareness,
+        teleLateTranslation: currentTeleop.lateTranslation,
+        teleOverallSuccess: currentTeleop.success,
+        teleFastRebound: currentTeleop.fastRebound,
+        teleIsFrozen: currentTeleop.isFrozen,
+        teleConfused: currentTeleop.confused,
+        teleStoppedScoring: currentTeleop.stoppedScoring,
+        teleGateFoul: currentTeleop.gateFoul,
+        teleParkingFoul: currentTeleop.parkingFoul,
+        teleIntakeFoul: currentTeleop.intakeFoul,
+        teleFoulCount: (currentTeleop.gateFoul ? 1 : 0) + (currentTeleop.parkingFoul ? 1 : 0) + (currentTeleop.intakeFoul ? 1 : 0),
+        teleHumanPlayer: currentTeleop.humanPlayer,
+        teleFloor: currentTeleop.floor,
+        teleComments: currentTeleop.comments,
+        teleTotalScore: currentTeleop.totalScore,
+        aiAnalysis: aiAnalysisText || '',
+        'טלאופ - כדור מנוקד': currentTeleop.intake,
+        'טלאופ - חניה': currentTeleop.liftParkingType ? 'מעלית' : (currentTeleop.fullParkingType ? 'חניה מלאה' : 'לא מעלית'),
+        'טווח ירי': `${currentTeleop.long > 0 ? 'משולש קטן' : ''}${currentTeleop.long > 0 && currentTeleop.short > 0 ? ', ' : ''}${currentTeleop.short > 0 ? 'משולש גדול' : ''}` || 'לא ירו',
+        'איסוף ': `${currentTeleop.floor ? 'איסוף מהרצפה' : ''}${currentTeleop.floor && currentTeleop.humanPlayer ? ', ' : ''}${currentTeleop.humanPlayer ? 'איסוף מהשחקן האנושי' : ''}` || 'לא אספו',
+        'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)': currentTeleop.comments || recordType
+      });
+    }
+
+    await syncToSpreadsheet(row);
   };
 
   const fetchHistory = async () => {
@@ -150,34 +236,6 @@ const App: React.FC = () => {
   const handleAuthSubmit = async (userData: User, mode?: 'investigate' | 'manage') => {
     setAuthError(null);
     
-    if (userData.role === 'scouter') {
-      setIsCheckingAuth(true);
-      try {
-        // Fetch latest history to ensure fresh duplicate check
-        const response = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=${SHEET_NAME}`);
-        if (response.ok) {
-          const text = await response.text();
-          const result = JSON.parse(text);
-          const latestHistory = Array.isArray(result) ? result : (result.data && Array.isArray(result.data) ? result.data : []);
-          setHistory(latestHistory);
-
-          if (checkDuplicate(latestHistory, userData.teamScouted, userData.gameNumber, userData.name)) {
-            const authT: any = language === Language.HE ? AuthTranslation_HE : AuthTranslation_EN;
-            const errorMsg = authT.duplicateError
-              .replace('{team}', userData.teamScouted)
-              .replace('{match}', userData.gameNumber)
-              .replace('{name}', userData.name);
-            setAuthError(errorMsg);
-            return;
-          }
-        }
-      } catch (e) {
-        console.error('Auth duplicate check failed:', e);
-      } finally {
-        setIsCheckingAuth(false);
-      }
-    }
-
     const sessionStartTime = Date.now();
     const sessionId = generateGUID();
     const enrichedUser: User = { ...userData, sessionId, sessionStartTime };
@@ -192,32 +250,7 @@ const App: React.FC = () => {
       }
     } else {
       setPhase(ScoutingPhase.AUTONOMOUS);
-      syncToSpreadsheet({
-        sessionId,
-        timestamp: new Date(sessionStartTime).toLocaleString(),
-        sessionStartTime: new Date(sessionStartTime).toISOString(),
-        name: enrichedUser.name,
-        gameNumber: enrichedUser.gameNumber,
-        allianceColor: enrichedUser.allianceColor || '',
-        role: enrichedUser.role,
-        recordType: 'SESSION_START',
-        // Hebrew Mapping for Session Start
-        'Timestamp': new Date(sessionStartTime).toISOString(),
-        'שם הסקאוטר': enrichedUser.name,
-        'מספר קבוצה': enrichedUser.teamScouted,
-        'מספר מקצה': enrichedUser.gameNumber,
-        'צבע ברית': enrichedUser.allianceColor || '',
-        'אוטונומי - מיקום': '',
-        'אוטונומי - נסע מהמקום': '',
-        'אוטונומי - כדור מנוקד': 0,
-        'אוטונומי - כדורים שהוחטאו': 0,
-        'הרובוט עשה leave?': '',
-        'טלאופ - כדור מנוקד': 0,
-        'טלאופ - חניה': '',
-        'טווח ירי': '',
-        'איסוף ': '',
-        'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)': 'SESSION_START'
-      });
+      syncScoutData('SESSION_START', null, null, enrichedUser);
     }
   };
 
@@ -290,13 +323,16 @@ const App: React.FC = () => {
           initialName={lastName}
           initialMatchNumber={lastMatchNumber}
           history={history}
-          isChecking={isCheckingAuth}
           externalError={authError}
         />;
       case ScoutingPhase.AUTONOMOUS: 
         return <AutoBinding 
           language={language}
-          onNext={(d) => { setAutoData(d); setPhase(ScoutingPhase.TELEOP); }} 
+          onNext={(d) => { 
+            setAutoData(d); 
+            setPhase(ScoutingPhase.TELEOP); 
+            syncScoutData('AUTO_COMPLETE', d, null, user);
+          }} 
           onBack={() => setPhase(ScoutingPhase.AUTH)}
           onLogout={handleLogout}
           initialData={autoData || {
@@ -315,7 +351,11 @@ const App: React.FC = () => {
       case ScoutingPhase.TELEOP: 
         return <TeleOpBinding 
           language={language}
-          onNext={(d) => { setTeleopData(d); setPhase(ScoutingPhase.SUMMARY); }} 
+          onNext={(d) => { 
+            setTeleopData(d); 
+            setPhase(ScoutingPhase.SUMMARY); 
+            syncScoutData('TELEOP_COMPLETE', autoData, d, user);
+          }} 
           onBack={() => setPhase(ScoutingPhase.AUTONOMOUS)} 
           onLogout={handleLogout}
           initialData={teleopData || undefined} 
@@ -340,12 +380,16 @@ const App: React.FC = () => {
                 const latestHistory = Array.isArray(result) ? result : (result.data && Array.isArray(result.data) ? result.data : []);
                 setHistory(latestHistory);
 
-                if (checkDuplicate(latestHistory, data.teamScouted, data.matchNumber, data.name)) {
+                const team = autoData?.teamScouted || user?.teamScouted || '';
+                const match = autoData?.matchNumber || user?.gameNumber || '';
+                const name = user?.name || '';
+
+                if (checkDuplicate(latestHistory, team, match, name)) {
                   const authT: any = language === Language.HE ? AuthTranslation_HE : AuthTranslation_EN;
                   const errorMsg = authT.duplicateError
-                    .replace('{team}', data.teamScouted)
-                    .replace('{match}', data.matchNumber)
-                    .replace('{name}', data.name);
+                    .replace('{team}', team)
+                    .replace('{match}', match)
+                    .replace('{name}', name);
                   setSummaryError(errorMsg);
                   return;
                 }
@@ -356,7 +400,7 @@ const App: React.FC = () => {
               setIsFetchingHistory(false);
             }
 
-            await syncToSpreadsheet({ ...data, role: user.role });
+            await syncScoutData('MATCH_COMPLETE', autoData, teleopData, user, data.aiAnalysis);
             if (user) {
               setLastName(user.name);
               const currentMatch = parseInt(user.gameNumber);
