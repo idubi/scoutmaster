@@ -1,16 +1,16 @@
 export const LayoutTranslation_EN = {
   appName: "SCOUTMASTER PRO",
   scoutingTeam: "Scouting Team",
-  copyright: "© 2024 ScoutMaster Pro - Built for FRC Excellence",
-  footerText: "Built for FRC Excellence",
+  copyright: "@ 2025-2026 ScoutMaster Pro - Built for FTC BoosTeam 15811",
+  footerText: "Built for FTC BoosTeam 15811",
   langSwitch: "עברית"
 };
 
 export const LayoutTranslation_HE = {
   appName: "SCOUTMASTER PRO",
   scoutingTeam: "סקאוטינג קבוצה",
-  copyright: "© 2024 ScoutMaster Pro - נבנה למצוינות ב-FRC",
-  footerText: "נבנה למצוינות ב-FRC",
+  copyright: "@ 2025-2026 ScoutMaster Pro - נבנה עבור FTC BoosTeam 15811",
+  footerText: "נבנה עבור FTC BoosTeam 15811",
   langSwitch: "English"
 };
 
