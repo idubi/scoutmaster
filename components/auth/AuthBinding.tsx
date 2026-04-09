@@ -11,6 +11,9 @@ interface AuthBindingProps {
   initialMatchNumber?: string;
   history: SpreadsheetRow[];
   externalError?: string | null;
+  onDeleteGame?: () => void;
+  onUpdateMetadata?: () => void;
+  isUpdateMode?: boolean;
 }
 
 const AuthBinding: React.FC<AuthBindingProps> = ({ 
@@ -18,19 +21,26 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
   language, 
   initialName = '',
   initialMatchNumber = '',
+  initialTeamNumber = '',
+  initialRole = 'scouter',
+  initialAllianceColor = 'Red',
   history,
-  externalError = null
+  externalError = null,
+  onDeleteGame,
+  onUpdateMetadata,
+  isUpdateMode = false
 }) => {
   const [name, setName] = useState(initialName);
-  const [teamScouted, setTeamScouted] = useState('');
+  const [teamScouted, setTeamScouted] = useState(initialTeamNumber);
   const [gameNumber, setGameNumber] = useState(initialMatchNumber);
-  const [role, setRole] = useState<'scouter' | 'admin'>('scouter');
-  const [allianceColor, setAllianceColor] = useState<'Red' | 'Blue'>('Red');
+  const [role, setRole] = useState<'scouter' | 'admin'>(initialRole);
+  const [allianceColor, setAllianceColor] = useState<'Red' | 'Blue'>(initialAllianceColor);
   const [error, setError] = useState<string | null>(null);
 
   const t: any = language === Language.HE ? AuthTranslation_HE : AuthTranslation_EN;
 
   const handleRoleChange = (newRole: 'scouter' | 'admin') => {
+    if (isUpdateMode) return;
     setRole(newRole);
     setError(null);
     if (newRole === 'admin') {
@@ -66,7 +76,10 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
       role={role} setRole={handleRoleChange}
       allianceColor={allianceColor} setAllianceColor={setAllianceColor}
       onSubmit={handleSubmit}
+      onDeleteGame={onDeleteGame}
+      onUpdateMetadata={onUpdateMetadata}
       error={displayError}
+      isUpdateMode={isUpdateMode}
     />
   );
 };

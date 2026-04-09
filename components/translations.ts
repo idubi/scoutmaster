@@ -31,7 +31,9 @@ export const AuthTranslation_EN = {
   teamColor: "Team Color",
   red: "Red",
   blue: "Blue",
-  duplicateError: "Data already exists for {name} on Team {team} in Match {match}"
+  duplicateError: "Data already exists for {name} on Team {team} in Match {match}",
+  updateTitle: "Update Mission",
+  updateBegin: "Update Session"
 };
 
 export const AuthTranslation_HE = {
@@ -51,7 +53,9 @@ export const AuthTranslation_HE = {
   teamColor: "צבע ברית",
   red: "אדום",
   blue: "כחול",
-  duplicateError: "כבר קיים דיווח עבור {name} בקבוצה {team} במקצה {match}"
+  duplicateError: "כבר קיים דיווח עבור {name} בקבוצה {team} במקצה {match}",
+  updateTitle: "עדכון משימה",
+  updateBegin: "עדכון משחק"
 };
 
 export const AutoTranslation_EN = {

@@ -67,8 +67,28 @@ const App: React.FC = () => {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isNavExpanded, setIsNavExpanded] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
+  const [isUpdateMode, setIsUpdateMode] = useState(false);
 
   const t = language === Language.HE ? AppTranslation_HE : AppTranslation_EN;
+
+  const handleDeleteGame = () => {
+    setUser(null);
+    setAutoData(null);
+    setTeleopData(null);
+    setSummaryError(null);
+    setAuthError(null);
+    setLastName('');
+    setLastMatchNumber('1');
+    setResetKey(prev => prev + 1);
+    setIsUpdateMode(false);
+    setPhase(ScoutingPhase.AUTH);
+  };
+
+  const handleUpdateMetadata = () => {
+    setIsUpdateMode(true);
+    setPhase(ScoutingPhase.AUTH);
+  };
 
   const checkDuplicate = (historyData: SpreadsheetRow[], team: string, match: string, name: string) => {
     return historyData.some(row => {
@@ -92,6 +112,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
+    setIsUpdateMode(false);
     setPhase(ScoutingPhase.AUTH);
   };
 
@@ -242,12 +263,11 @@ const App: React.FC = () => {
   const handleAuthSubmit = async (userData: User, mode?: 'investigate' | 'manage') => {
     setAuthError(null);
     
-    const sessionStartTime = Date.now();
-    const sessionId = generateGUID();
-    const enrichedUser: User = { ...userData, sessionId, sessionStartTime };
-    setUser(enrichedUser);
-    
     if (userData.role === 'admin') {
+      const sessionStartTime = Date.now();
+      const sessionId = generateGUID();
+      const enrichedUser: User = { ...userData, sessionId, sessionStartTime };
+      setUser(enrichedUser);
       if (mode === 'manage') {
         setPhase(ScoutingPhase.MANAGEMENT);
       } else {
@@ -255,8 +275,33 @@ const App: React.FC = () => {
         fetchHistory();
       }
     } else {
-      setPhase(ScoutingPhase.AUTONOMOUS);
-      syncScoutData('SESSION_START', null, null, enrichedUser);
+      if (isUpdateMode) {
+        const updatedUser = {
+          ...userData,
+          sessionId: user?.sessionId || generateGUID(),
+          sessionStartTime: user?.sessionStartTime || Date.now()
+        };
+        setUser(updatedUser);
+        
+        // Update autoData and teleopData to match new metadata
+        if (autoData) {
+          setAutoData({
+            ...autoData,
+            matchNumber: updatedUser.gameNumber,
+            teamScouted: updatedUser.teamScouted
+          });
+        }
+        
+        setIsUpdateMode(false);
+        setPhase(ScoutingPhase.SUMMARY);
+      } else {
+        const sessionStartTime = Date.now();
+        const sessionId = generateGUID();
+        const enrichedUser: User = { ...userData, sessionId, sessionStartTime };
+        setUser(enrichedUser);
+        setPhase(ScoutingPhase.AUTONOMOUS);
+        syncScoutData('SESSION_START', null, null, enrichedUser);
+      }
     }
   };
 
@@ -324,12 +369,19 @@ const App: React.FC = () => {
     switch (phase) {
       case ScoutingPhase.AUTH: 
         return <AuthBinding 
+          key={resetKey}
           onSubmit={handleAuthSubmit} 
           language={language} 
-          initialName={lastName}
-          initialMatchNumber={lastMatchNumber}
+          initialName={isUpdateMode ? user?.name : lastName}
+          initialMatchNumber={isUpdateMode ? user?.gameNumber : lastMatchNumber}
+          initialTeamNumber={isUpdateMode ? user?.teamScouted : ''}
+          initialRole={isUpdateMode ? user?.role : 'scouter'}
+          initialAllianceColor={isUpdateMode ? user?.allianceColor : 'Red'}
           history={history}
           externalError={authError}
+          onDeleteGame={handleDeleteGame}
+          onUpdateMetadata={handleUpdateMetadata}
+          isUpdateMode={isUpdateMode}
         />;
       case ScoutingPhase.AUTONOMOUS: 
         return <AutoBinding 
@@ -375,6 +427,10 @@ const App: React.FC = () => {
           targetSheetId={SPREADSHEET_ID}
           error={summaryError}
           isSyncing={syncStatus === 'syncing'}
+          onDeleteGame={handleDeleteGame}
+          onUpdateMetadata={handleUpdateMetadata}
+          onLogout={handleLogout}
+          onBack={() => setPhase(ScoutingPhase.TELEOP)}
           onFinish={async (data) => {
             setSummaryError(null);
             // Final duplicate check before sync
@@ -416,8 +472,6 @@ const App: React.FC = () => {
             setUser(null); setAutoData(null); setTeleopData(null); setPhase(ScoutingPhase.AUTH);
             setSummaryError(null);
           }} 
-          onBack={() => setPhase(ScoutingPhase.TELEOP)} 
-          onLogout={handleLogout}
         />;
       case ScoutingPhase.ADMIN:
         return <AdminBinding 

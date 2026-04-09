@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, User, Hash } from 'lucide-react';
+import { Users, User, Hash, AlertCircle } from 'lucide-react';
 import { Language } from '../../types';
 import { AuthTranslation_EN, AuthTranslation_HE } from '../translations';
 
@@ -15,8 +15,11 @@ interface AuthFormProps {
   setRole: (v: 'scouter' | 'admin') => void;
   setAllianceColor: (v: 'Red' | 'Blue') => void;
   onSubmit: (e: React.FormEvent, mode?: 'investigate' | 'manage') => void;
+  onDeleteGame?: () => void;
+  onUpdateMetadata?: () => void;
   language: Language;
   error?: string | null;
+  isUpdateMode?: boolean;
 }
 
 const AuthForm: React.FC<AuthFormProps> = (props) => {
@@ -26,13 +29,36 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
   return (
     <div className="max-w-md mx-auto bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 font-sans">
       <div className="text-center mb-10">
-        <h2 className={`text-3xl font-black text-[#1a1c2e] uppercase tracking-tight mb-2 ${isRTL ? 'text-2xl' : ''}`}>{t.title}</h2>
+        <h2 className={`text-3xl font-black text-[#1a1c2e] uppercase tracking-tight mb-2 ${isRTL ? 'text-2xl' : ''}`}>
+          {props.isUpdateMode ? t.updateTitle : t.title}
+        </h2>
         <p className={`text-slate-400 font-semibold ${isRTL ? 'text-base' : 'text-sm'}`}>{t.subtitle}</p>
       </div>
 
-      {props.error && (
-        <div className={`mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 font-bold text-center ${isRTL ? 'text-sm' : 'text-xs'}`}>
-          {props.error}
+      {props.error && !props.isUpdateMode && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-row items-center justify-between gap-4" dir="ltr">
+          <div className="flex flex-row items-center gap-3">
+            <AlertCircle className="text-red-500 shrink-0" size={20} />
+            <p className={`text-red-600 font-bold ${isRTL ? 'text-right text-sm' : 'text-left text-xs'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+              {props.error}
+            </p>
+          </div>
+          <div className="flex flex-row gap-2 shrink-0">
+            <button 
+              type="button"
+              onClick={props.onUpdateMetadata}
+              className="px-3 py-2 border border-red-200 rounded-xl text-[10px] font-black text-red-600 hover:bg-red-100 transition-colors uppercase tracking-tighter"
+            >
+              UPDATE GAME METADATA
+            </button>
+            <button 
+              type="button"
+              onClick={props.onDeleteGame}
+              className="px-3 py-2 border border-red-200 rounded-xl text-[10px] font-black text-red-600 hover:bg-red-100 transition-colors uppercase tracking-tighter"
+            >
+              DELETE GAME
+            </button>
+          </div>
         </div>
       )}
 
@@ -107,12 +133,15 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
               { key: 'admin', label: t.admin, activeColor: 'bg-[#00a67e] border-[#00a67e] text-white shadow-lg shadow-emerald-500/20', inactiveColor: 'bg-[#e8f5e9] border-[#c8e6c9] text-[#2e7d32]' } 
             ].map((r) => (
               <button
-                key={r.key} type="button" onClick={() => props.setRole(r.key as 'scouter' | 'admin')}
+                key={r.key} 
+                type="button" 
+                disabled={props.isUpdateMode}
+                onClick={() => props.setRole(r.key as 'scouter' | 'admin')}
                 className={`py-4 px-4 rounded-2xl border-2 font-black uppercase tracking-[0.2em] transition-all transform active:scale-[0.98] ${
                   props.role === r.key 
                   ? r.activeColor 
                   : r.inactiveColor
-                } ${isRTL ? 'text-xs' : 'text-[10px]'}`}
+                } ${isRTL ? 'text-xs' : 'text-[10px]'} ${props.isUpdateMode ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {r.label}
               </button>
@@ -142,7 +171,7 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
             type="submit" 
             className={`w-full bg-[#4d4dff] hover:bg-[#4040ff] text-white font-black uppercase tracking-[0.2em] py-6 rounded-2xl transition-all shadow-2xl shadow-indigo-500/30 transform active:scale-[0.98] mt-6 ${isRTL ? 'text-lg' : 'text-base'}`}
           >
-            {t.begin}
+            {props.isUpdateMode ? t.updateBegin : t.begin}
           </button>
         )}
       </form>

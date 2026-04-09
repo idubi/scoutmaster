@@ -15,6 +15,8 @@ interface SummaryViewProps {
   onFinish: () => void;
   onLogout: () => void;
   onGenerateAi: () => void;
+  onDeleteGame?: () => void;
+  onUpdateMetadata?: () => void;
   language: Language;
   error?: string | null;
 }
@@ -82,9 +84,29 @@ const SummaryView: React.FC<SummaryViewProps> = (props) => {
 
       <div className="p-6 space-y-6">
         {props.error && (
-          <div className="bg-rose-50 border-2 border-rose-200 p-4 rounded-2xl flex items-center gap-3 text-rose-600 animate-in fade-in slide-in-from-top-2">
-            <AlertCircle size={20} className="shrink-0" />
-            <p className={`font-bold ${isRTL ? 'text-sm' : 'text-xs'}`}>{props.error}</p>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-row items-center justify-between gap-4" dir="ltr">
+            <div className="flex flex-row items-center gap-3">
+              <AlertCircle className="text-red-500 shrink-0" size={20} />
+              <p className={`text-red-600 font-bold ${isRTL ? 'text-right text-sm' : 'text-left text-xs'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+                {props.error}
+              </p>
+            </div>
+            <div className="flex flex-row gap-2 shrink-0">
+              <button 
+                type="button"
+                onClick={props.onUpdateMetadata}
+                className="px-3 py-2 border border-red-200 rounded-xl text-[10px] font-black text-red-600 hover:bg-red-100 transition-colors uppercase tracking-tighter"
+              >
+                UPDATE GAME METADATA
+              </button>
+              <button 
+                type="button"
+                onClick={props.onDeleteGame}
+                className="px-3 py-2 border border-red-200 rounded-xl text-[10px] font-black text-red-600 hover:bg-red-100 transition-colors uppercase tracking-tighter"
+              >
+                DELETE GAME
+              </button>
+            </div>
           </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
