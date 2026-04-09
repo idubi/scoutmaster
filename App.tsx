@@ -111,9 +111,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
-    setUser(null);
-    setIsUpdateMode(false);
-    setPhase(ScoutingPhase.AUTH);
+    handleDeleteGame();
   };
 
   const syncToSpreadsheet = async (data: Partial<SpreadsheetRow>) => {
