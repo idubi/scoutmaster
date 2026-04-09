@@ -331,6 +331,9 @@ export const AdminTranslation_EN = {
   red: "Red",
   blue: "Blue",
   selectMatch: "Select Match",
+  rank: "Rank #",
+  grade: "Grade",
+  ratioTie: "Ratio",
 };
 
 export const AdminTranslation_HE = {
@@ -430,6 +433,9 @@ export const AdminTranslation_HE = {
   red: "אדום",
   blue: "כחול",
   selectMatch: "בחר מקצה",
+  rank: "דירוג #",
+  grade: "ציון",
+  ratioTie: "יחס",
 };
 
 export const AppTranslation_EN = {

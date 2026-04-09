@@ -130,3 +130,19 @@ export interface SpreadsheetRow {
   'איסוף '?: string;
   'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)'?: string;
 }
+
+export interface TeamAggregatedData {
+  TeamNumber: string;
+  GAMES_COUNT: number;
+  TOTAL_TELEOP_HIT: number;
+  TOTAL_AUTONOMUS_HIT: number;
+  TOTAL_TELEOP_MISS: number;
+  TOTAL_AUTONOMUS_MISS: number;
+  TOTAL_IS_FULL_PARKING: number;
+  TOTAL_FOULS: number;
+}
+
+export interface TeamGradeResult {
+  grade: number;
+  ratio: number;
+}

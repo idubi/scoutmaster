@@ -199,6 +199,7 @@ const App: React.FC = () => {
         teleGateFoul: currentTeleop.gateFoul,
         teleParkingFoul: currentTeleop.parkingFoul,
         teleIntakeFoul: currentTeleop.intakeFoul,
+        teleFullParking: currentTeleop.fullParkingType,
         teleFoulCount: (currentTeleop.gateFoul ? 1 : 0) + (currentTeleop.parkingFoul ? 1 : 0) + (currentTeleop.intakeFoul ? 1 : 0),
         teleHumanPlayer: currentTeleop.humanPlayer,
         teleFloor: currentTeleop.floor,
@@ -477,6 +478,7 @@ const App: React.FC = () => {
           history={history}
           isLoading={isFetchingHistory}
           sheetName={SHEET_NAME}
+          spreadsheetId={SPREADSHEET_ID}
           onBack={() => setPhase(ScoutingPhase.AUTH)}
           onLogout={handleLogout}
         />;

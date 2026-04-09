@@ -7,12 +7,42 @@ interface AdminBindingProps {
   history: SpreadsheetRow[];
   isLoading: boolean;
   sheetName: string;
+  spreadsheetId: string;
   onBack: () => void;
   onLogout: () => void;
 }
 
-const AdminBinding: React.FC<AdminBindingProps> = ({ language, history, isLoading, sheetName, onBack, onLogout }) => {
+const AdminBinding: React.FC<AdminBindingProps> = ({ 
+  language, 
+  history, 
+  isLoading, 
+  sheetName, 
+  spreadsheetId,
+  onBack, 
+  onLogout 
+}) => {
   const [isSeeding, setIsSeeding] = React.useState(false);
+  const [teamsGrades, setTeamsGrades] = React.useState<any[]>([]);
+  const [isLoadingGrades, setIsLoadingGrades] = React.useState(false);
+
+  const fetchTeamsGrades = React.useCallback(async () => {
+    setIsLoadingGrades(true);
+    try {
+      const response = await fetch(`/api/history?targetSheetId=${spreadsheetId}&sheetName=TEAMS_GRADES`);
+      if (response.ok) {
+        const data = await response.json();
+        setTeamsGrades(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Error fetching TEAMS_GRADES:', error);
+    } finally {
+      setIsLoadingGrades(false);
+    }
+  }, [spreadsheetId]);
+
+  React.useEffect(() => {
+    fetchTeamsGrades();
+  }, [fetchTeamsGrades]);
 
   const handleSeedData = async () => {
     if (!window.confirm('This will generate 18 test records (6 for each team: 15811, 15928, 25041) and sync them to Google Sheets. Continue?')) return;
@@ -112,7 +142,8 @@ const AdminBinding: React.FC<AdminBindingProps> = ({ language, history, isLoadin
     <AdminView 
       language={language} 
       history={history} 
-      isLoading={isLoading}
+      isLoading={isLoading || isLoadingGrades}
+      teamsGrades={teamsGrades}
       sheetName={sheetName}
       onBack={onBack} 
       onLogout={onLogout}

@@ -9,20 +9,22 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
-import { Search, Table as TableIcon, BarChart3, ArrowLeft, ChevronDown, Check, X } from 'lucide-react';
-import { Language, SpreadsheetRow } from '../../types';
+import { Search, Table as TableIcon, BarChart3, ArrowLeft, ChevronDown, Check, X, Trophy } from 'lucide-react';
+import { Language, SpreadsheetRow, TeamAggregatedData } from '../../types';
 import { AdminTranslation_EN, AdminTranslation_HE } from '../translations';
+import { calculateTeamGrade } from '../../lib/gradingEngine';
 
 interface AdminViewProps {
   language: Language;
   history: SpreadsheetRow[];
+  teamsGrades: TeamAggregatedData[];
   isLoading: boolean;
   sheetName: string;
   onBack: () => void;
   onLogout: () => void;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, sheetName, onBack, onLogout }) => {
+const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, isLoading, sheetName, onBack, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'investigation' | 'compare' | 'game'>('investigation');
   const [compareTab, setCompareTab] = useState<'ranking' | 'auto'>('ranking');
   const [selectedMatch, setSelectedMatch] = useState<string>('');
@@ -390,6 +392,39 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
   }, [history, compareSelectedTeams, selectedMetrics]);
 
   const COLORS = ['#818cf8', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316'];
+
+  const rankedTeams = useMemo(() => {
+    if (!teamsGrades || !Array.isArray(teamsGrades) || teamsGrades.length === 0) return [];
+
+    // 1. Calculate grades for all teams
+    const teamsWithGrades = teamsGrades.map(teamData => {
+      const { grade, ratio } = calculateTeamGrade(teamData);
+      return {
+        ...teamData,
+        grade,
+        ratio
+      };
+    });
+
+    // 2. Sort by Grade DESC, then Ratio DESC
+    const sorted = [...teamsWithGrades].sort((a, b) => {
+      if (b.grade !== a.grade) return b.grade - a.grade;
+      return b.ratio - a.ratio;
+    });
+
+    // 3. Assign Absolute Rank
+    return sorted.map((team, index) => ({
+      ...team,
+      rank: index + 1
+    }));
+  }, [teamsGrades]);
+
+  const filteredRankedTeams = useMemo(() => {
+    if (compareSelectedTeams.length === 0) return [];
+    return rankedTeams
+      .filter(team => compareSelectedTeams.includes(team.TeamNumber))
+      .sort((a, b) => a.rank - b.rank);
+  }, [rankedTeams, compareSelectedTeams]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700" dir={isRTL ? 'rtl' : 'ltr'}>
@@ -1033,23 +1068,29 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, isLoading, she
                         <table className="w-full text-start border-collapse" dir={isRTL ? 'rtl' : 'ltr'}>
                           <thead>
                             <tr className="bg-emerald-900 text-white">
+                              <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.rank}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.teamNumber}</th>
+                              <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.grade}</th>
+                              <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.ratioTie}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.avgAuto}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start">{t.avgTele}</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {compareSelectedTeams.map(team => {
-                              const teamRows = history.filter(r => {
-                                const isMatchComplete = r.recordType === 'MATCH_COMPLETE';
-                                const isTargetTeam = r.teamScouted?.toString() === team;
-                                return isMatchComplete && isTargetTeam;
-                              });
-                              const avgAuto = teamRows.length > 0 ? (teamRows.reduce((acc, r) => acc + (r.autoTotalScore || 0), 0) / teamRows.length).toFixed(2) : '0.00';
-                              const avgTele = teamRows.length > 0 ? (teamRows.reduce((acc, r) => acc + (r.teleTotalScore || 0), 0) / teamRows.length).toFixed(2) : '0.00';
+                            {filteredRankedTeams.map(team => {
+                              const avgAuto = (team.TOTAL_AUTONOMUS_HIT / team.GAMES_COUNT).toFixed(2);
+                              const avgTele = (team.TOTAL_TELEOP_HIT / team.GAMES_COUNT).toFixed(2);
                               return (
-                                <tr key={team} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                                  <td className="py-4 px-6 font-black text-slate-900 border-r border-slate-200">{team}</td>
+                                <tr key={team.TeamNumber} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                                  <td className="py-4 px-6 font-black text-indigo-600 border-r border-slate-200">
+                                    <div className="flex items-center gap-2">
+                                      {team.rank <= 3 && <Trophy size={14} className={team.rank === 1 ? 'text-amber-400' : team.rank === 2 ? 'text-slate-400' : 'text-amber-700'} />}
+                                      #{team.rank}
+                                    </div>
+                                  </td>
+                                  <td className="py-4 px-6 font-black text-slate-900 border-r border-slate-200">{team.TeamNumber}</td>
+                                  <td className="py-4 px-6 font-black text-emerald-600 border-r border-slate-200">{team.grade}</td>
+                                  <td className="py-4 px-6 font-bold text-slate-500 border-r border-slate-200">{team.ratio}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{avgAuto}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700">{avgTele}</td>
                                 </tr>
