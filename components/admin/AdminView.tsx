@@ -109,8 +109,8 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
 
   const uniqueTeams = useMemo(() => {
     const teams = history
-      .map(row => row.teamScouted?.toString())
-      .filter((team): team is string => !!team && team.trim() !== '');
+      .map(row => row.teamScouted?.toString().trim())
+      .filter((team): team is string => !!team && team !== '');
     return Array.from(new Set(teams)).sort((a: string, b: string) => {
       const numA = parseInt(a);
       const numB = parseInt(b);
@@ -396,8 +396,18 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
   const rankedTeams = useMemo(() => {
     if (!teamsGrades || !Array.isArray(teamsGrades) || teamsGrades.length === 0) return [];
 
-    // 1. Calculate grades for all teams
-    const teamsWithGrades = teamsGrades.map(teamData => {
+    // 1. Ensure uniqueness by TeamNumber (take the first occurrence)
+    const uniqueGradesMap = new Map<string, TeamAggregatedData>();
+    teamsGrades.forEach(team => {
+      const teamNum = team.TeamNumber?.toString().trim();
+      if (teamNum && !uniqueGradesMap.has(teamNum)) {
+        uniqueGradesMap.set(teamNum, team);
+      }
+    });
+    const uniqueTeamsGrades = Array.from(uniqueGradesMap.values());
+
+    // 2. Calculate grades for all teams
+    const teamsWithGrades = uniqueTeamsGrades.map(teamData => {
       const { grade, ratio } = calculateTeamGrade(teamData);
       return {
         ...teamData,
@@ -406,13 +416,13 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
       };
     });
 
-    // 2. Sort by Grade DESC, then Ratio DESC
+    // 3. Sort by Grade DESC, then Ratio DESC
     const sorted = [...teamsWithGrades].sort((a, b) => {
       if (b.grade !== a.grade) return b.grade - a.grade;
       return b.ratio - a.ratio;
     });
 
-    // 3. Assign Absolute Rank
+    // 4. Assign Absolute Rank
     return sorted.map((team, index) => ({
       ...team,
       rank: index + 1
@@ -1351,8 +1361,8 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
                                   <ul className="space-y-1 text-slate-300 text-sm">
                                     {matchRows
                                       .filter(r => r.allianceColor === 'Red')
-                                      .map(r => (
-                                        <li key={r.teamScouted} className="flex items-center gap-2">
+                                      .map((r, idx) => (
+                                        <li key={`${r.teamScouted}-${idx}`} className="flex items-center gap-2">
                                           <div className="w-1 h-1 bg-red-500 rounded-full" />
                                           <span>Team {r.teamScouted}: {(r.autoTotalScore || 0) + (r.teleTotalScore || 0)} pts</span>
                                         </li>
@@ -1364,8 +1374,8 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
                                   <ul className="space-y-1 text-slate-300 text-sm">
                                     {matchRows
                                       .filter(r => r.allianceColor === 'Blue')
-                                      .map(r => (
-                                        <li key={r.teamScouted} className="flex items-center gap-2">
+                                      .map((r, idx) => (
+                                        <li key={`${r.teamScouted}-${idx}`} className="flex items-center gap-2">
                                           <div className="w-1 h-1 bg-blue-500 rounded-full" />
                                           <span>Team {r.teamScouted}: {(r.autoTotalScore || 0) + (r.teleTotalScore || 0)} pts</span>
                                         </li>
