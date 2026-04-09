@@ -31,7 +31,7 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
       </div>
 
       {props.error && (
-        <div className={`mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 font-bold text-center animate-in fade-in slide-in-from-top-2 ${isRTL ? 'text-sm' : 'text-xs'}`}>
+        <div className={`mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 font-bold text-center ${isRTL ? 'text-sm' : 'text-xs'}`}>
           {props.error}
         </div>
       )}

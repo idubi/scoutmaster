@@ -13,9 +13,10 @@ interface SummaryBindingProps {
   onLogout: () => void;
   language: Language;
   error?: string | null;
+  isSyncing?: boolean;
 }
 
-const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, targetSheetId, onFinish, onBack, onLogout, language, error }) => {
+const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, targetSheetId, onFinish, onBack, onLogout, language, error, isSyncing }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
 
@@ -58,6 +59,7 @@ const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, tar
       user={user}
       aiAnalysis={aiAnalysis} 
       isAnalyzing={isAnalyzing} 
+      isSyncing={isSyncing}
       onBack={onBack} 
       onFinish={finalize} 
       onGenerateAi={generateAi} 

@@ -76,7 +76,7 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </nav>
       
-      <main className="flex-grow animate-in fade-in duration-500 pt-8 sm:pt-4">
+      <main className="flex-grow pt-8 sm:pt-4">
         {children}
       </main>
       

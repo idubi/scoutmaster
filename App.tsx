@@ -52,6 +52,7 @@ const generateGUID = () => {
 
 const App: React.FC = () => {
   const [phase, setPhase] = useState<ScoutingPhase>(ScoutingPhase.AUTH);
+  console.log("App: Rendering phase", phase);
   const [language, setLanguage] = useState<Language>(Language.HE);
   const [user, setUser] = useState<User | null>(null);
   const [autoData, setAutoData] = useState<AutoData | null>(null);
@@ -193,7 +194,12 @@ const App: React.FC = () => {
       });
     }
 
-    await syncToSpreadsheet(row);
+    // Only sync to spreadsheet for the final record to avoid multiple rows per session
+    if (recordType === 'MATCH_COMPLETE') {
+      await syncToSpreadsheet(row);
+    } else {
+      console.log(`Local sync: ${recordType} - Data updated locally, will sync to cloud on finish.`);
+    }
   };
 
   const fetchHistory = async () => {
@@ -368,6 +374,7 @@ const App: React.FC = () => {
           user={user!}
           targetSheetId={SPREADSHEET_ID}
           error={summaryError}
+          isSyncing={syncStatus === 'syncing'}
           onFinish={async (data) => {
             setSummaryError(null);
             // Final duplicate check before sync
@@ -504,44 +511,7 @@ const App: React.FC = () => {
       onToggleNav={() => setIsNavExpanded(!isNavExpanded)}
     >
       <div className="max-w-4xl mx-auto px-2 py-4 sm:px-4 sm:py-6" dir={language === Language.HE ? 'rtl' : 'ltr'}>
-        {/* Collapsible Progress Area */}
-        <div className={`transition-all duration-500 overflow-hidden ${isNavExpanded ? 'max-h-[300px] opacity-100 mb-6' : 'max-h-0 opacity-0 mb-0 pointer-events-none'}`}>
-          <div className="flex justify-between items-center mb-4 px-4">
-            <div className="flex items-center gap-3">
-               <div className={`w-2.5 h-2.5 rounded-full ${syncStatus === 'success' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : syncStatus === 'syncing' ? 'bg-blue-500 animate-pulse' : syncStatus === 'error' ? 'bg-red-500' : 'bg-slate-700'}`} />
-               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                 {syncStatus === 'syncing' ? t.syncing : syncStatus === 'success' ? t.cloud : t.ready}
-               </span>
-            </div>
-          </div>
-
-          {user && (
-            <div className="flex items-center justify-between relative px-6 py-4">
-              <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-800 -translate-y-1/2 z-0" />
-              {[
-                { p: ScoutingPhase.AUTH, i: Radio, l: t.auth, show: true },
-                { p: ScoutingPhase.AUTONOMOUS, i: Cpu, l: t.auto, show: true },
-                { p: ScoutingPhase.TELEOP, i: ClipboardList, l: t.tele, show: true },
-                { p: ScoutingPhase.SUMMARY, i: BarChart3, l: t.done, show: true },
-                { p: ScoutingPhase.ADMIN, i: BarChart3, l: t.admin, show: user.role === 'admin' }
-              ].filter(s => s.show).map((step) => (
-                <button 
-                  key={step.l} 
-                  onClick={() => handlePhaseChange(step.p)}
-                  className="flex flex-col items-center relative z-10 group outline-none"
-                >
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 transform ${phase === step.p ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-500/30 scale-110' : 'bg-slate-800 text-slate-500 border border-slate-700 hover:bg-slate-700 group-hover:scale-105'}`}>
-                    <step.i size={20} />
-                  </div>
-                  <span className={`text-[10px] mt-2 font-black uppercase tracking-widest transition-colors ${phase === step.p ? 'text-indigo-400' : 'text-slate-600 group-hover:text-slate-400'}`}>{step.l}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Dynamic Form Area */}
-        <div className="bg-slate-900/40 backdrop-blur-2xl border border-slate-800 rounded-[2.5rem] shadow-3xl p-1.5 sm:p-6 lg:p-10 transition-all duration-500">
+        <div className="bg-white rounded-3xl shadow-2xl p-6">
           {renderPhase()}
         </div>
       </div>
