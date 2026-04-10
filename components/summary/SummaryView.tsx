@@ -11,6 +11,7 @@ interface SummaryViewProps {
   aiAnalysis: string | null;
   isAnalyzing: boolean;
   isSyncing?: boolean;
+  isSubmitting?: boolean;
   onBack: () => void;
   onFinish: () => void;
   onLogout: () => void;
@@ -215,8 +216,8 @@ const SummaryView: React.FC<SummaryViewProps> = (props) => {
         <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-slate-100">
           <button 
             onClick={props.onFinish} 
-            disabled={props.isSyncing}
-            className={`w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-2xl font-black uppercase tracking-[0.4em] flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/20 transition-all active:scale-[0.98] border-b-4 border-emerald-800 ${isRTL ? 'text-[13px]' : 'text-[11px]'} ${props.isSyncing ? 'opacity-70 cursor-not-allowed' : ''}`}
+            disabled={props.isSyncing || props.isSubmitting}
+            className={`w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-2xl font-black uppercase tracking-[0.4em] flex items-center justify-center gap-2 shadow-xl shadow-emerald-600/20 transition-all active:scale-[0.98] border-b-4 border-emerald-800 ${isRTL ? 'text-[13px]' : 'text-[11px]'} ${(props.isSyncing || props.isSubmitting) ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
             {props.isSyncing ? (
               <>

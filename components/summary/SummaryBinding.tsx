@@ -14,11 +14,12 @@ interface SummaryBindingProps {
   language: Language;
   error?: string | null;
   isSyncing?: boolean;
+  isSubmitting?: boolean;
   onDeleteGame?: () => void;
   onUpdateMetadata?: () => void;
 }
 
-const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, targetSheetId, onFinish, onBack, onLogout, language, error, isSyncing, onDeleteGame, onUpdateMetadata }) => {
+const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, targetSheetId, onFinish, onBack, onLogout, language, error, isSyncing, isSubmitting, onDeleteGame, onUpdateMetadata }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
 
@@ -62,6 +63,7 @@ const SummaryBinding: React.FC<SummaryBindingProps> = ({ auto, teleop, user, tar
       aiAnalysis={aiAnalysis} 
       isAnalyzing={isAnalyzing} 
       isSyncing={isSyncing}
+      isSubmitting={isSubmitting}
       onBack={onBack} 
       onFinish={finalize} 
       onGenerateAi={generateAi} 

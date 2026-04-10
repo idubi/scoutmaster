@@ -2,8 +2,8 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
 
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
-
+// const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzFojjlLmw3jM0Xkds4soG4hnPtDsDRXDHTQT8vV-QXWj7a1Z-qGfC-QxlK-FoUcOyIkQ/exec';
 
 async function startServer() {
   const app = express();
@@ -17,6 +17,12 @@ async function startServer() {
     const { targetSheetId, sheetName } = req.query;
     const url = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}${sheetName ? `&sheetName=${encodeURIComponent(sheetName as string)}` : ''}`;
     
+    // Prevent caching
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+
     console.log(`Proxy: Fetching history for sheet: ${sheetName}`);
     console.log(`Proxy: Target URL: ${url}`);
     

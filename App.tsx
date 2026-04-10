@@ -17,10 +17,13 @@ import {
   X
 } from 'lucide-react';
 
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
-const SPREADSHEET_ID = '1pA-8L0iNw4WJqKXqVHcXLoAUxZDVrJHl_8bYR7pg64Y';
+// const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzFojjlLmw3jM0Xkds4soG4hnPtDsDRXDHTQT8vV-QXWj7a1Z-qGfC-QxlK-FoUcOyIkQ/exec';
+// const SPREADSHEET_ID = '1pA-8L0iNw4WJqKXqVHcXLoAUxZDVrJHl_8bYR7pg64Y';
+const SPREADSHEET_ID = '1AF7CpExwwMI2xDWMYxVkLq0UNls_VPEtwXUQkOMl9i8';
 
-const SHEET_NAME = 'liortestmapping'; // Set your sheet name here
+
+const SHEET_NAME = 'scoutsmaster_ongoing'; // Set your sheet name here
 
 const ALL_HEADERS = [
   // Hebrew Headers (Matching demo-table order)
@@ -69,6 +72,7 @@ const App: React.FC = () => {
   const [isNavExpanded, setIsNavExpanded] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const t = language === Language.HE ? AppTranslation_HE : AppTranslation_EN;
 
@@ -82,27 +86,34 @@ const App: React.FC = () => {
     setLastMatchNumber('1');
     setResetKey(prev => prev + 1);
     setIsUpdateMode(false);
+    setIsSubmitting(false);
     setPhase(ScoutingPhase.AUTH);
   };
 
   const handleUpdateMetadata = () => {
+    setSummaryError(null);
     setIsUpdateMode(true);
+    setIsSubmitting(false);
     setPhase(ScoutingPhase.AUTH);
   };
 
   const checkDuplicate = (historyData: SpreadsheetRow[], team: string, match: string, name: string) => {
+    const cleanTeam = String(team || '').trim();
+    const cleanMatch = String(match || '').trim();
+    const cleanName = String(name || '').trim().toLowerCase();
+
     return historyData.some(row => {
-      const rowTeam = row['מספר קבוצה'] || row.teamScouted;
-      const rowMatch = row['מספר מקצה'] || row.gameNumber || row.matchNumber;
-      const rowName = row['שם הסקאוטר'] || row.name;
+      const rowTeam = String(row['מספר קבוצה'] || row.teamScouted || '').trim();
+      const rowMatch = String(row['מספר מקצה'] || row.gameNumber || row.matchNumber || '').trim();
+      const rowName = String(row['שם הסקאוטר'] || row.name || '').trim().toLowerCase();
       const rowRecordType = row['recordType'];
       
       // Only consider it a duplicate if it's a MATCH_COMPLETE record
       if (rowRecordType !== 'MATCH_COMPLETE') return false;
 
-      return String(rowTeam) === String(team) && 
-             String(rowMatch) === String(match) &&
-             String(rowName).trim().toLowerCase() === String(name).trim().toLowerCase();
+      return rowTeam === cleanTeam && 
+             rowMatch === cleanMatch && 
+             rowName === cleanName;
     });
   };
 
@@ -261,6 +272,7 @@ const App: React.FC = () => {
 
   const handleAuthSubmit = async (userData: User, mode?: 'investigate' | 'manage') => {
     setAuthError(null);
+    setSummaryError(null);
     
     if (userData.role === 'admin') {
       const sessionStartTime = Date.now();
@@ -430,12 +442,16 @@ const App: React.FC = () => {
           onUpdateMetadata={handleUpdateMetadata}
           onLogout={handleLogout}
           onBack={() => setPhase(ScoutingPhase.TELEOP)}
+          isSubmitting={isSubmitting}
           onFinish={async (data) => {
+            if (isSubmitting) return;
+            setIsSubmitting(true);
             setSummaryError(null);
             // Final duplicate check before sync
             setIsFetchingHistory(true);
             try {
-              const response = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=${SHEET_NAME}`);
+              const cacheBuster = Date.now();
+              const response = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=${SHEET_NAME}&_=${cacheBuster}`);
               if (response.ok) {
                 const text = await response.text();
                 const result = JSON.parse(text);
@@ -470,6 +486,7 @@ const App: React.FC = () => {
             }
             setUser(null); setAutoData(null); setTeleopData(null); setPhase(ScoutingPhase.AUTH);
             setSummaryError(null);
+            setIsSubmitting(false);
           }} 
         />;
       case ScoutingPhase.ADMIN:
