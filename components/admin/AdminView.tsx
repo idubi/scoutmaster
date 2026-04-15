@@ -9,7 +9,7 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
-import { Search, Table as TableIcon, BarChart3, ArrowLeft, ChevronDown, Check, X, Trophy } from 'lucide-react';
+import { Search, Table as TableIcon, BarChart3, ArrowLeft, ChevronDown, Check, X, Trophy, RefreshCw } from 'lucide-react';
 import { Language, SpreadsheetRow, TeamAggregatedData } from '../../types';
 import { AdminTranslation_EN, AdminTranslation_HE } from '../translations';
 import { calculateTeamGrade } from '../../lib/gradingEngine';
@@ -22,10 +22,26 @@ interface AdminViewProps {
   sheetName: string;
   onBack: () => void;
   onLogout: () => void;
+  onSeed: () => void;
+  onRecalculate: () => Promise<void>;
+  isSeeding: boolean;
+  isRecalculating: boolean;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, isLoading, sheetName, onBack, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'investigation' | 'compare' | 'game'>('investigation');
+const AdminView: React.FC<AdminViewProps> = ({ 
+  language, 
+  history, 
+  teamsGrades, 
+  isLoading, 
+  sheetName, 
+  onBack, 
+  onLogout,
+  onSeed,
+  onRecalculate,
+  isSeeding,
+  isRecalculating
+}) => {
+  const [activeTab, setActiveTab] = useState<'investigation' | 'compare' | 'game' | 'manage'>('investigation');
   const [compareTab, setCompareTab] = useState<'ranking' | 'auto'>('ranking');
   const [selectedMatch, setSelectedMatch] = useState<string>('');
   const [isMatchDropdownOpen, setIsMatchDropdownOpen] = useState(false);
@@ -466,6 +482,12 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
                 className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'game' ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}`}
               >
                 {t.gameView}
+              </button>
+              <button 
+                onClick={() => setActiveTab('manage')}
+                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'manage' ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}`}
+              >
+                {isRTL ? 'ניהול' : 'Manage'}
               </button>
             </div>
           </div>
@@ -1080,6 +1102,7 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
                             <tr className="bg-emerald-900 text-white">
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.rank}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.teamNumber}</th>
+                              <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{isRTL ? 'משחקים' : 'Games'}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.grade}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.ratioTie}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-emerald-800">{t.avgAuto}</th>
@@ -1099,6 +1122,7 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
                                     </div>
                                   </td>
                                   <td className="py-4 px-6 font-black text-slate-900 border-r border-slate-200">{team.TeamNumber}</td>
+                                  <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{team.GAMES_COUNT}</td>
                                   <td className="py-4 px-6 font-black text-emerald-600 border-r border-slate-200">{team.grade}</td>
                                   <td className="py-4 px-6 font-bold text-slate-500 border-r border-slate-200">{team.ratio}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{avgAuto}</td>
@@ -1397,6 +1421,67 @@ const AdminView: React.FC<AdminViewProps> = ({ language, history, teamsGrades, i
               </div>
             )}
       </div>
+
+      {activeTab === 'manage' && (
+        <div className="space-y-8 max-w-4xl mx-auto py-12">
+          <div className="bg-white border-4 border-slate-900 rounded-[2.5rem] p-10 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
+            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-2">
+              {isRTL ? 'ניהול מערכת' : 'System Management'}
+            </h2>
+            <p className="text-slate-500 font-bold mb-8">
+              {isRTL ? 'כלים לתחזוקת המערכת וגיבוש נתונים.' : 'System maintenance and data consolidation tools.'}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Recalculate Card */}
+              <div className="bg-slate-50 border-2 border-slate-900 rounded-3xl p-6 flex flex-col gap-4">
+                <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+                  <RefreshCw size={24} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 uppercase tracking-tight">
+                    {isRTL ? 'גיבוש נתונים' : 'Data Consolidation'}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold mt-1">
+                    {isRTL ? 'חשב מחדש את כל ציוני הקבוצות מנתוני המשחקים הגולמיים ועדכן את טבלת המובילים.' : 'Recalculate all team grades from raw match data and update the leaderboard.'}
+                  </p>
+                </div>
+                <button
+                  onClick={onRecalculate}
+                  disabled={isRecalculating}
+                  className={`mt-auto flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] ${isRecalculating ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-400 text-slate-900 hover:bg-emerald-300'}`}
+                >
+                  <RefreshCw size={16} className={isRecalculating ? 'animate-spin' : ''} />
+                  {isRTL ? 'רענן וגבש נתונים' : 'Recalculate & Consolidate'}
+                </button>
+              </div>
+
+              {/* Seed Data Card */}
+              <div className="bg-slate-50 border-2 border-slate-900 rounded-3xl p-6 flex flex-col gap-4">
+                <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600">
+                  <TableIcon size={24} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 uppercase tracking-tight">
+                    {isRTL ? 'יצירת נתוני דוגמה' : 'Test Data Generation'}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold mt-1">
+                    {isRTL ? 'צור רשומות משחקים פיקטיביות למטרות בדיקה.' : 'Generate dummy match records for testing purposes.'}
+                  </p>
+                </div>
+                <button
+                  onClick={onSeed}
+                  disabled={isSeeding}
+                  className={`mt-auto flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] ${isSeeding ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-400 text-white hover:bg-indigo-500'}`}
+                >
+                  <TableIcon size={16} />
+                  {isRTL ? 'צור נתוני דוגמה' : 'Seed Test Data'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

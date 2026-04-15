@@ -1,8 +1,11 @@
 
 import fetch from 'node-fetch';
+import {ENV}  from "./constants";
 
-// const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzFojjlLmw3jM0Xkds4soG4hnPtDsDRXDHTQT8vV-QXWj7a1Z-qGfC-QxlK-FoUcOyIkQ/exec';
+
+const GOOGLE_SHEET_URL = ENV.GOOGLE_SHEET_URL;
+
+
 
 
 const SPREADSHEET_ID = '1pA-8L0iNw4WJqKXqVHcXLoAUxZDVrJHl_8bYR7pg64Y';

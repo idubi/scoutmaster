@@ -16,10 +16,11 @@ import {
   ArrowLeft,
   X
 } from 'lucide-react';
+import {ENV}  from "./constants";
 
-// const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyIwBD5iPSNDoLt0fwdQ0wGJTsqGWV2pS8rS65mzHg96lSb-n4Ul2OAtR-t2DsHbD7G/exec';
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzFojjlLmw3jM0Xkds4soG4hnPtDsDRXDHTQT8vV-QXWj7a1Z-qGfC-QxlK-FoUcOyIkQ/exec';
-// const SPREADSHEET_ID = '1pA-8L0iNw4WJqKXqVHcXLoAUxZDVrJHl_8bYR7pg64Y';
+
+const GOOGLE_SHEET_URL = ENV.GOOGLE_SHEET_URL;
+
 const SPREADSHEET_ID = '1AF7CpExwwMI2xDWMYxVkLq0UNls_VPEtwXUQkOMl9i8';
 
 
@@ -41,6 +42,7 @@ const ALL_HEADERS = [
   'teleFieldAwareness',
   'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
   'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
+  'teleFullParking',
   'teleHumanPlayer', 'teleFloor', 'teleComments', 'teleTotalScore', 'aiAnalysis', 'recordType', 'targetSheetId'
 ];
 

@@ -60,6 +60,7 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
       'teleFieldAwareness',
       'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
       'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
+      'teleFullParking',
       'teleHumanPlayer', 'teleFloor', 'teleComments', 'teleTotalScore', 'aiAnalysis', 'recordType', 'targetSheetId'
     ];
 
@@ -109,14 +110,15 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
             teleParkingFoul: Math.random() > 0.9,
             teleIntakeFoul: Math.random() > 0.9,
             teleFoulCount: 0,
+            teleFullParking: Math.random() > 0.5,
             teleHumanPlayer: Math.random() > 0.5,
             teleFloor: Math.random() > 0.5,
             teleComments: 'Test comments',
             teleTotalScore: teleTotalScore,
             aiAnalysis: 'Test analysis',
             recordType: 'MATCH_COMPLETE',
-            targetSheetId: '1pA-8L0iNw4WJqKXqVHcXLoAUxZDVrJHl_8bYR7pg64Y',
-            sheetName: 'idotest1',
+            targetSheetId: spreadsheetId,
+            sheetName: 'scoutsmaster_ongoing',
             headers: ALL_HEADERS
           };
 
@@ -130,11 +132,36 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
         }
       }
       alert('Seeding complete! Please refresh the admin view to see the new data.');
+      fetchTeamsGrades();
     } catch (error) {
       console.error('Seeding failed:', error);
       alert('Seeding failed. Check console for details.');
     } finally {
       setIsSeeding(false);
+    }
+  };
+
+  const [isRecalculating, setIsRecalculating] = React.useState(false);
+  const handleRecalculate = async () => {
+    setIsRecalculating(true);
+    try {
+      const response = await fetch('/api/recalculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetSheetId: spreadsheetId })
+      });
+      if (response.ok) {
+        alert('Recalculation complete! The TEAMS_GRADES sheet has been consolidated.');
+        fetchTeamsGrades();
+      } else {
+        const errData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        alert(`Recalculation failed:\n\n${errData.error}`);
+      }
+    } catch (error) {
+      console.error('Recalculation error:', error);
+      alert('Error during recalculation.');
+    } finally {
+      setIsRecalculating(false);
     }
   };
 
@@ -148,7 +175,9 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
       onBack={onBack} 
       onLogout={onLogout}
       onSeed={handleSeedData}
+      onRecalculate={handleRecalculate}
       isSeeding={isSeeding}
+      isRecalculating={isRecalculating}
     />
   );
 };

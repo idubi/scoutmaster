@@ -140,6 +140,12 @@ export interface TeamAggregatedData {
   TOTAL_AUTONOMUS_MISS: number;
   TOTAL_IS_FULL_PARKING: number;
   TOTAL_FOULS: number;
+  TOTAL_GATE_FOULS: number;
+  TOTAL_PARKING_FOULS: number;
+  TOTAL_INTAKE_FOULS: number;
+  GRADE: number;
+  RATIO: number;
+  RANK: number;
 }
 
 export interface TeamGradeResult {
