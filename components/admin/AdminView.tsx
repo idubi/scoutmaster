@@ -26,6 +26,10 @@ interface AdminViewProps {
   onRecalculate: () => Promise<void>;
   isSeeding: boolean;
   isRecalculating: boolean;
+  lastConsolidationTime: string | null;
+  autoCalcActive: boolean;
+  autoCalcSeconds: number;
+  onUpdateSettings: (settings: { isAutoCalcActive?: boolean, calcIntervalSeconds?: number }) => void;
 }
 
 const AdminView: React.FC<AdminViewProps> = ({ 
@@ -39,7 +43,11 @@ const AdminView: React.FC<AdminViewProps> = ({
   onSeed,
   onRecalculate,
   isSeeding,
-  isRecalculating
+  isRecalculating,
+  lastConsolidationTime,
+  autoCalcActive,
+  autoCalcSeconds,
+  onUpdateSettings
 }) => {
   const [activeTab, setActiveTab] = useState<'investigation' | 'compare' | 'game' | 'manage'>('investigation');
   const [compareTab, setCompareTab] = useState<'ranking' | 'auto'>('ranking');
@@ -64,10 +72,6 @@ const AdminView: React.FC<AdminViewProps> = ({
   const [isGameTeamDropdownOpen, setIsGameTeamDropdownOpen] = useState(false);
   const [isGameMatchDropdownOpen, setIsGameMatchDropdownOpen] = useState(false);
   const [isCompareTeamDropdownOpen, setIsCompareTeamDropdownOpen] = useState(false);
-
-  // Auto Grade Calc state
-  const [autoCalcSeconds, setAutoCalcSeconds] = useState<number>(80);
-  const [isAutoCalcActive, setIsAutoCalcActive] = useState<boolean>(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const metricDropdownRef = useRef<HTMLDivElement>(null);
@@ -1449,6 +1453,16 @@ const AdminView: React.FC<AdminViewProps> = ({
                   <p className="text-xs text-slate-500 font-bold mt-1">
                     {isRTL ? 'חשב מחדש את כל ציוני הקבוצות מנתוני המשחקים הגולמיים ועדכן את טבלת המובילים.' : 'Recalculate all team grades from raw match data and update the leaderboard.'}
                   </p>
+                  {lastConsolidationTime && (
+                    <div className="mt-2 flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-tighter text-emerald-600">
+                        {isRTL ? 'בוצע לאחרונה ב:' : 'Last run at:'}
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                        {lastConsolidationTime}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={onRecalculate}
@@ -1463,7 +1477,7 @@ const AdminView: React.FC<AdminViewProps> = ({
               {/* Automatic Grade Calculation Card */}
               <div className="bg-slate-50 border-2 border-slate-900 rounded-3xl p-6 flex flex-col gap-4">
                 <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
-                  <RefreshCw size={24} className={isAutoCalcActive ? 'animate-spin' : ''} />
+                  <RefreshCw size={24} className={autoCalcActive ? 'animate-spin' : ''} />
                 </div>
                 <div>
                   <h3 className="font-black text-slate-900 uppercase tracking-tight">
@@ -1482,7 +1496,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                     <input 
                       type="number" 
                       value={autoCalcSeconds}
-                      onChange={(e) => setAutoCalcSeconds(parseInt(e.target.value) || 0)}
+                      onChange={(e) => onUpdateSettings({ calcIntervalSeconds: parseInt(e.target.value) || 0 })}
                       className="w-20 bg-white border-2 border-slate-900 rounded-xl px-2 py-2 text-center font-bold text-slate-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus:outline-none"
                     />
                     <span className="text-xs font-black text-slate-900 uppercase tracking-widest">
@@ -1491,11 +1505,11 @@ const AdminView: React.FC<AdminViewProps> = ({
                   </div>
 
                   <button
-                    onClick={() => setIsAutoCalcActive(!isAutoCalcActive)}
-                    className={`flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] ${isAutoCalcActive ? 'bg-emerald-400 text-slate-900 hover:bg-emerald-300' : 'bg-red-500 text-white hover:bg-red-400'}`}
+                    onClick={() => onUpdateSettings({ isAutoCalcActive: !autoCalcActive })}
+                    className={`flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] ${autoCalcActive ? 'bg-emerald-400 text-slate-900 hover:bg-emerald-300' : 'bg-red-500 text-white hover:bg-red-400'}`}
                   >
-                    <div className={`w-2 h-2 rounded-full ${isAutoCalcActive ? 'bg-emerald-900 animate-pulse' : 'bg-red-900'}`} />
-                    {isAutoCalcActive ? (isRTL ? 'פעיל' : 'Active') : (isRTL ? 'לא פעיל' : 'Inactive')}
+                    <div className={`w-2 h-2 rounded-full ${autoCalcActive ? 'bg-emerald-900 animate-pulse' : 'bg-red-900'}`} />
+                    {autoCalcActive ? (isRTL ? 'פעיל' : 'Active') : (isRTL ? 'לא פעיל' : 'Inactive')}
                   </button>
                 </div>
               </div>

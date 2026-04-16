@@ -1,6 +1,7 @@
 import React from 'react';
-import { Language, SpreadsheetRow } from '../../types';
-import AdminView from './AdminView';
+import { Language, SpreadsheetRow } from "../../types";
+import AdminView from "./AdminView";
+
 
 interface AdminBindingProps {
   language: Language;
@@ -24,6 +25,52 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
   const [isSeeding, setIsSeeding] = React.useState(false);
   const [teamsGrades, setTeamsGrades] = React.useState<any[]>([]);
   const [isLoadingGrades, setIsLoadingGrades] = React.useState(false);
+  const [lastConsolidationTime, setLastConsolidationTime] = React.useState<string | null>(null);
+  
+  // System Settings State
+  const [settings, setSettings] = React.useState({
+    isAutoCalcActive: false,
+    calcIntervalSeconds: 80
+  });
+
+  const fetchSettings = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        setSettings({
+          isAutoCalcActive: data.isAutoCalcActive,
+          calcIntervalSeconds: data.calcIntervalSeconds
+        });
+        if (data.lastConsolidationTime) {
+          setLastConsolidationTime(new Date(data.lastConsolidationTime).toLocaleString());
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  }, []);
+
+  const handleUpdateSettings = async (newSettings: { isAutoCalcActive?: boolean, calcIntervalSeconds?: number }) => {
+    // Optimistic update
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
+
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...updated,
+          targetSheetId: spreadsheetId
+        })
+      });
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      // Revert if failed
+      fetchSettings();
+    }
+  };
 
   const fetchTeamsGrades = React.useCallback(async () => {
     setIsLoadingGrades(true);
@@ -42,7 +89,16 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
 
   React.useEffect(() => {
     fetchTeamsGrades();
-  }, [fetchTeamsGrades]);
+    fetchSettings();
+
+    // Set up polling for updates while admin is active
+    const interval = setInterval(() => {
+      fetchSettings();
+      fetchTeamsGrades();
+    }, 10000); // Check every 10s for background job results
+
+    return () => clearInterval(interval);
+  }, [fetchTeamsGrades, fetchSettings]);
 
   const handleSeedData = async () => {
     if (!window.confirm('This will generate 18 test records (6 for each team: 15811, 15928, 25041) and sync them to Google Sheets. Continue?')) return;
@@ -151,6 +207,7 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
         body: JSON.stringify({ targetSheetId: spreadsheetId })
       });
       if (response.ok) {
+        setLastConsolidationTime(new Date().toLocaleString());
         alert('Recalculation complete! The TEAMS_GRADES sheet has been consolidated.');
         fetchTeamsGrades();
       } else {
@@ -178,6 +235,10 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
       onRecalculate={handleRecalculate}
       isSeeding={isSeeding}
       isRecalculating={isRecalculating}
+      lastConsolidationTime={lastConsolidationTime}
+      autoCalcActive={settings.isAutoCalcActive}
+      autoCalcSeconds={settings.calcIntervalSeconds}
+      onUpdateSettings={handleUpdateSettings}
     />
   );
 };

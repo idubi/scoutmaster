@@ -8,6 +8,14 @@ import {ENV}  from "./constants";
 
 const GOOGLE_SHEET_URL = ENV.GOOGLE_SHEET_URL;
 
+// Global settings state (in-memory cache)
+let systemSettings = {
+  isAutoCalcActive: false,
+  calcIntervalSeconds: 80,
+  targetSheetId: "",
+  lastConsolidationTime: null as string | null
+};
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -115,6 +123,69 @@ async function startServer() {
         res.status(500).json({ error: "Failed to recalculate grades: " + (error.message || "Unknown error") });
       }
     }
+  });
+
+  // API to get system settings
+  app.get("/api/settings", async (req, res) => {
+    // Optionally fetch from Google Sheets if we wanted true persistence across server restarts
+    // For now, return in-memory
+    res.json(systemSettings);
+  });
+
+  // API to update system settings
+  app.post("/api/settings", async (req, res) => {
+    const { isAutoCalcActive, calcIntervalSeconds, targetSheetId, lastConsolidationTime } = req.body;
+    
+    // Update local cache
+    systemSettings = {
+      isAutoCalcActive: !!isAutoCalcActive,
+      calcIntervalSeconds: Number(calcIntervalSeconds) || 80,
+      targetSheetId: targetSheetId || systemSettings.targetSheetId,
+      lastConsolidationTime: lastConsolidationTime === undefined ? systemSettings.lastConsolidationTime : lastConsolidationTime
+    };
+
+    console.log(`[Settings] Updated: Active=${systemSettings.isAutoCalcActive}, Interval=${systemSettings.calcIntervalSeconds}s, LastPos=${systemSettings.lastConsolidationTime}`);
+
+    // Persist to Google Sheets in a SYSTEM_SETTINGS sheet
+    if (systemSettings.targetSheetId) {
+      try {
+        const SETTINGS_SHEET = 'SYSTEM_SETTINGS';
+        const SETTINGS_HEADERS = ['isAutoCalcActive', 'calcIntervalSeconds', 'targetSheetId', 'lastConsolidationTime'];
+        
+        // Use the recreate logic to always have a clean settings row
+        const url = `${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${SETTINGS_SHEET}&action=recreate`;
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'recreate', 
+            targetSheetId: systemSettings.targetSheetId, 
+            sheetName: SETTINGS_SHEET,
+            headers: SETTINGS_HEADERS
+          }),
+          redirect: 'follow'
+        });
+
+        // Append the single row of settings
+        await fetch(`${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${SETTINGS_SHEET}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            isAutoCalcActive: String(systemSettings.isAutoCalcActive),
+            calcIntervalSeconds: String(systemSettings.calcIntervalSeconds),
+            targetSheetId: systemSettings.targetSheetId,
+            lastConsolidationTime: systemSettings.lastConsolidationTime || "",
+            sheetName: SETTINGS_SHEET,
+            headers: SETTINGS_HEADERS
+          }),
+          redirect: 'follow'
+        });
+      } catch (err) {
+        console.error("[Settings] Failed to persist to Google Sheets:", err);
+      }
+    }
+
+    res.json({ status: "success", settings: systemSettings });
   });
 
   async function updateTeamsGrades(targetSheetId: string, newMatchData?: any) {
@@ -418,6 +489,104 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  // --- BACKEND BATCH JOB (Asynchronous Recalculation) ---
+  let isJobRunning = false;
+  let lastRunTime = 0;
+
+  setInterval(async () => {
+    if (!systemSettings.isAutoCalcActive || !systemSettings.targetSheetId) return;
+
+    const now = Date.now();
+    const intervalMs = systemSettings.calcIntervalSeconds * 1000;
+
+    if (now - lastRunTime >= intervalMs && !isJobRunning) {
+      isJobRunning = true;
+      console.log(`[Batch Job] Starting scheduled execution for ${systemSettings.targetSheetId}...`);
+      
+      try {
+        // Step 1: Fetch Raw Data and check for new games
+        const RAW_DATA_SHEET = 'scoutsmaster_ongoing';
+        const fetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${RAW_DATA_SHEET}`;
+        const fetchResponse = await fetch(fetchUrl, { redirect: 'follow' });
+        const fetchText = await fetchResponse.text();
+        
+        let rawData: any[] = [];
+        if (fetchResponse.ok && !fetchText.includes("not found")) {
+          rawData = JSON.parse(fetchText);
+        }
+
+        // Filter and collect affected teams
+        const lastConsolidationDate = systemSettings.lastConsolidationTime ? new Date(systemSettings.lastConsolidationTime) : new Date(0);
+        let newestTimestamp = lastConsolidationDate;
+        
+        const affectedTeams = new Set<string>();
+        const validGames = rawData.filter(game => {
+          const timestamp = new Date(game.Timestamp || game.timestamp);
+          const isNew = timestamp > lastConsolidationDate;
+          
+          if (isNew) {
+            if (timestamp > newestTimestamp) newestTimestamp = timestamp;
+            const team = String(game.teamScouted || game['מספר קבוצה'] || '').trim();
+            if (team) affectedTeams.add(team);
+          }
+          return isNew;
+        });
+
+        if (affectedTeams.size > 0) {
+          console.log(`[Batch Job] Found ${validGames.length} new games affecting ${affectedTeams.size} teams.`);
+          
+          // Step 2: Recalculate & Update
+          // We trigger a full consolidation here because it ensures ranks/aggregates are always correct
+          // Given the sheet architecture, a full rewrite is the most reliable way to maintain data integrity
+          await updateTeamsGrades(systemSettings.targetSheetId);
+          
+          // Step 3: Reset the Clock and update settings
+          systemSettings.lastConsolidationTime = newestTimestamp.toISOString();
+          
+          // Persist the new timestamp to SYSTEM_SETTINGS sheet
+          const SETTINGS_SHEET = 'SYSTEM_SETTINGS';
+          const SETTINGS_HEADERS = ['isAutoCalcActive', 'calcIntervalSeconds', 'targetSheetId', 'lastConsolidationTime'];
+          
+          await fetch(`${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${SETTINGS_SHEET}&action=recreate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              action: 'recreate', 
+              targetSheetId: systemSettings.targetSheetId, 
+              sheetName: SETTINGS_SHEET,
+              headers: SETTINGS_HEADERS
+            }),
+            redirect: 'follow'
+          });
+
+          await fetch(`${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${SETTINGS_SHEET}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              isAutoCalcActive: String(systemSettings.isAutoCalcActive),
+              calcIntervalSeconds: String(systemSettings.calcIntervalSeconds),
+              targetSheetId: systemSettings.targetSheetId,
+              lastConsolidationTime: systemSettings.lastConsolidationTime,
+              sheetName: SETTINGS_SHEET,
+              headers: SETTINGS_HEADERS
+            }),
+            redirect: 'follow'
+          });
+
+          console.log(`[Batch Job] Successfully processed batch. Freshness marker: ${systemSettings.lastConsolidationTime}`);
+        } else {
+          console.log(`[Batch Job] No new games since ${lastConsolidationDate.toLocaleString()}. Skipping.`);
+        }
+        
+        lastRunTime = Date.now();
+      } catch (err) {
+        console.error(`[Batch Job] Critical error:`, err);
+      } finally {
+        isJobRunning = false;
+      }
+    }
+  }, 5000); // Check every 5 seconds if it's time to run
 }
 
 startServer();
