@@ -64,6 +64,10 @@ const AdminView: React.FC<AdminViewProps> = ({
   const [isGameTeamDropdownOpen, setIsGameTeamDropdownOpen] = useState(false);
   const [isGameMatchDropdownOpen, setIsGameMatchDropdownOpen] = useState(false);
   const [isCompareTeamDropdownOpen, setIsCompareTeamDropdownOpen] = useState(false);
+
+  // Auto Grade Calc state
+  const [autoCalcSeconds, setAutoCalcSeconds] = useState<number>(80);
+  const [isAutoCalcActive, setIsAutoCalcActive] = useState<boolean>(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const metricDropdownRef = useRef<HTMLDivElement>(null);
@@ -1432,7 +1436,7 @@ const AdminView: React.FC<AdminViewProps> = ({
               {isRTL ? 'כלים לתחזוקת המערכת וגיבוש נתונים.' : 'System maintenance and data consolidation tools.'}
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Recalculate Card */}
               <div className="bg-slate-50 border-2 border-slate-900 rounded-3xl p-6 flex flex-col gap-4">
                 <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
@@ -1454,6 +1458,46 @@ const AdminView: React.FC<AdminViewProps> = ({
                   <RefreshCw size={16} className={isRecalculating ? 'animate-spin' : ''} />
                   {isRTL ? 'רענן וגבש נתונים' : 'Recalculate & Consolidate'}
                 </button>
+              </div>
+
+              {/* Automatic Grade Calculation Card */}
+              <div className="bg-slate-50 border-2 border-slate-900 rounded-3xl p-6 flex flex-col gap-4">
+                <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
+                  <RefreshCw size={24} className={isAutoCalcActive ? 'animate-spin' : ''} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 uppercase tracking-tight">
+                    {isRTL ? 'חישוב ציונים אוטומטי' : 'Automatic Grade Calculation'}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold mt-1">
+                    {isRTL ? 'הגדר מרווח לחישוב ציונים אוטומטי.' : 'Set an interval for automatic grade recalculation.'}
+                  </p>
+                </div>
+                
+                <div className="mt-4 flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-black text-slate-900 uppercase tracking-widest">
+                      {isRTL ? 'כל' : 'Run Every'}
+                    </span>
+                    <input 
+                      type="number" 
+                      value={autoCalcSeconds}
+                      onChange={(e) => setAutoCalcSeconds(parseInt(e.target.value) || 0)}
+                      className="w-20 bg-white border-2 border-slate-900 rounded-xl px-2 py-2 text-center font-bold text-slate-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus:outline-none"
+                    />
+                    <span className="text-xs font-black text-slate-900 uppercase tracking-widest">
+                      {isRTL ? 'שניות' : 'Sec'}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => setIsAutoCalcActive(!isAutoCalcActive)}
+                    className={`flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] ${isAutoCalcActive ? 'bg-emerald-400 text-slate-900 hover:bg-emerald-300' : 'bg-red-500 text-white hover:bg-red-400'}`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${isAutoCalcActive ? 'bg-emerald-900 animate-pulse' : 'bg-red-900'}`} />
+                    {isAutoCalcActive ? (isRTL ? 'פעיל' : 'Active') : (isRTL ? 'לא פעיל' : 'Inactive')}
+                  </button>
+                </div>
               </div>
 
               {/* Seed Data Card */}
