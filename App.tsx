@@ -28,16 +28,16 @@ const SHEET_NAME = 'scoutsmaster_ongoing'; // Set your sheet name here
 
 const ALL_HEADERS = [
   // Hebrew Headers (Matching demo-table order)
-  'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', 'צבע ברית', 'אוטונומי - מיקום', 
+  'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', 'צבע ברית', 'isAutoZoneSmall', 'isAutoZoneBig', 
   'אוטונומי - נסע מהמקום', 'אוטונומי - כדור מנוקד', 'אוטונומי - כדורים שהוחטאו', 
-  'הרובוט עשה leave?', 'טלאופ - כדור מנוקד', 'טלאופ - חניה', 'טווח ירי', 'איסוף ', 
+  'הרובוט עשה leave?', 'טלאופ - כדור מנוקד', 'טלאופ - חניה', 'isTeleopZoneSmall', 'isTeleopZoneBig', 'איסוף ', 
   'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)',
   // Internal App Headers
   'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
-  'gameNumber', 'allianceColor', 'matchNumber', 'teamScouted', 'role', 'autoZoneType', 
+  'gameNumber', 'allianceColor', 'matchNumber', 'teamScouted', 'role', 
   'autoMobility_Leave', 
   'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
-  'teleBallHit', 'teleSmallTriangle_Long', 'teleBigTriangle_Short',
+  'teleBallHit', 
   'teleBallMiss',
   'teleFieldAwareness',
   'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
@@ -180,7 +180,8 @@ const App: React.FC = () => {
 
     if (currentAuto) {
       Object.assign(row, {
-        autoZoneType: currentAuto.zoneType,
+        isAutoZoneSmall: currentAuto.zoneType === 'small',
+        isAutoZoneBig: currentAuto.zoneType === 'big',
         autoMobility_Leave: currentAuto.leave,
         autoOpenGate: currentAuto.openGate,
         autoIntakeUsed: currentAuto.intake,
@@ -188,7 +189,6 @@ const App: React.FC = () => {
         autoBallMiss: currentAuto.ballsMissed,
         autoNotes: currentAuto.freeText,
         autoTotalScore: currentAuto.totalScore,
-        'אוטונומי - מיקום': currentAuto.zoneType === 'big' ? 'משולש גדול' : (currentAuto.zoneType === 'small' ? 'משולש קטן' : currentAuto.zoneType),
         'אוטונומי - נסע מהמקום': currentAuto.leave ? 'כן' : 'לא',
         'אוטונומי - כדור מנוקד': currentAuto.ballsSide,
         'אוטונומי - כדורים שהוחטאו': currentAuto.ballsMissed,
@@ -199,8 +199,8 @@ const App: React.FC = () => {
     if (currentTeleop) {
       Object.assign(row, {
         teleBallHit: currentTeleop.intake,
-        teleSmallTriangle_Long: currentTeleop.long,
-        teleBigTriangle_Short: currentTeleop.short,
+        isTeleopZoneSmall: currentTeleop.long > 0,
+        isTeleopZoneBig: currentTeleop.short > 0,
         teleBallMiss: currentTeleop.gateOverflow,
         teleFieldAwareness: currentTeleop.fieldAwareness,
         teleLateTranslation: currentTeleop.lateTranslation,
@@ -221,7 +221,6 @@ const App: React.FC = () => {
         aiAnalysis: aiAnalysisText || '',
         'טלאופ - כדור מנוקד': currentTeleop.intake,
         'טלאופ - חניה': currentTeleop.liftParkingType ? 'מעלית' : (currentTeleop.fullParkingType ? 'חניה מלאה' : 'לא מעלית'),
-        'טווח ירי': `${currentTeleop.long > 0 ? 'משולש קטן' : ''}${currentTeleop.long > 0 && currentTeleop.short > 0 ? ', ' : ''}${currentTeleop.short > 0 ? 'משולש גדול' : ''}` || 'לא ירו',
         'איסוף ': `${currentTeleop.floor ? 'איסוף מהרצפה' : ''}${currentTeleop.floor && currentTeleop.humanPlayer ? ', ' : ''}${currentTeleop.humanPlayer ? 'איסוף מהשחקן האנושי' : ''}` || 'לא אספו',
         'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)': currentTeleop.comments || recordType
       });

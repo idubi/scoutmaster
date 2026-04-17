@@ -88,17 +88,8 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
   }, [spreadsheetId]);
 
   React.useEffect(() => {
-    fetchTeamsGrades();
     fetchSettings();
-
-    // Set up polling for updates while admin is active
-    const interval = setInterval(() => {
-      fetchSettings();
-      fetchTeamsGrades();
-    }, 10000); // Check every 10s for background job results
-
-    return () => clearInterval(interval);
-  }, [fetchTeamsGrades, fetchSettings]);
+  }, [fetchSettings]);
 
   const handleSeedData = async () => {
     if (!window.confirm('This will generate 18 test records (6 for each team: 15811, 15928, 25041) and sync them to Google Sheets. Continue?')) return;
@@ -108,11 +99,12 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
     const scouterNames = ['TestScouter1', 'TestScouter2', 'TestScouter3'];
     const ALL_HEADERS = [
       'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
-      'gameNumber', 'matchNumber', 'teamScouted', 'role', 'autoZoneType', 
+      'gameNumber', 'matchNumber', 'teamScouted', 'role',  
       'autoMobility_Leave', 
       'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
-      'teleBallHit', 'teleSmallTriangle_Long', 'teleBigTriangle_Short',
-      'teleBallMiss',
+      'teleBallHit', 'teleBallMiss',
+      'isTeleopZoneSmall', 'isTeleopZoneBig',
+      'isAutoZoneSmall', 'isAutoZoneBig',
       'teleFieldAwareness',
       'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
       'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
@@ -143,7 +135,8 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
             matchNumber: i.toString(),
             teamScouted: team,
             role: 'scouter',
-            autoZoneType: Math.random() > 0.5 ? 'SMALL' : 'BIG',
+            isAutoZoneSmall: Math.random() > 0.5,
+            isAutoZoneBig: Math.random() > 0.5,
             autoMobility_Leave: autoMobility,
             autoOpenGate: Math.random() > 0.8,
             autoIntakeUsed: Math.random() > 0.5,
@@ -152,8 +145,8 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
             autoNotes: 'Automated test data',
             autoTotalScore: autoTotalScore,
             teleBallHit: teleBallHit,
-            teleSmallTriangle_Long: teleSmall,
-            teleBigTriangle_Short: teleBig,
+            isTeleopZoneSmall: teleSmall > 0,
+            isTeleopZoneBig: teleBig > 0,
             teleBallMiss: Math.floor(Math.random() * 5),
             teleFieldAwareness: Math.random() > 0.2,
             teleLateTranslation: Math.random() > 0.8,
@@ -239,6 +232,7 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
       autoCalcActive={settings.isAutoCalcActive}
       autoCalcSeconds={settings.calcIntervalSeconds}
       onUpdateSettings={handleUpdateSettings}
+      onFetchGrades={fetchTeamsGrades}
     />
   );
 };

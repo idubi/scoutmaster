@@ -79,7 +79,8 @@ export interface SpreadsheetRow {
   matchNumber: string;
   teamScouted: string;
   role?: string;
-  autoZoneType: string;
+  isAutoZoneSmall: boolean;
+  isAutoZoneBig: boolean;
   autoMobility_Leave: boolean;
   autoOpenGate: boolean;
   autoIntakeUsed: boolean;
@@ -88,8 +89,8 @@ export interface SpreadsheetRow {
   autoNotes: string;
   autoTotalScore: number;
   teleBallHit: number;
-  teleSmallTriangle_Long: number;
-  teleBigTriangle_Short: number;
+  isTeleopZoneSmall: boolean;
+  isTeleopZoneBig: boolean;
   teleBallMiss: number;
   teleFieldAwareness: boolean;
   teleLateTranslation: boolean;
@@ -119,14 +120,12 @@ export interface SpreadsheetRow {
   'מספר מקצה'?: string;
   'צבע ברית'?: string;
   '.'?: string;
-  'אוטונומי - מיקום'?: string;
   'אוטונומי - נסע מהמקום'?: string;
   'אוטונומי - כדור מנוקד'?: number;
   'אוטונומי - כדורים שהוחטאו'?: number;
   'הרובוט עשה leave?'?: string;
   'טלאופ - כדור מנוקד'?: number;
   'טלאופ - חניה'?: string;
-  'טווח ירי'?: string;
   'איסוף '?: string;
   'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)'?: string;
 }
@@ -139,6 +138,10 @@ export interface TeamAggregatedData {
   TOTAL_TELEOP_MISS: number;
   TOTAL_AUTONOMUS_MISS: number;
   TOTAL_IS_FULL_PARKING: number;
+  TOTAL_AUTO_ZONE_SMALL: number;
+  TOTAL_AUTO_ZONE_BIG: number;
+  TOTAL_TELEOP_ZONE_SMALL: number;
+  TOTAL_TELEOP_ZONE_BIG: number;
   TOTAL_FOULS: number;
   TOTAL_GATE_FOULS: number;
   TOTAL_PARKING_FOULS: number;

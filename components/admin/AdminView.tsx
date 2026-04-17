@@ -30,6 +30,7 @@ interface AdminViewProps {
   autoCalcActive: boolean;
   autoCalcSeconds: number;
   onUpdateSettings: (settings: { isAutoCalcActive?: boolean, calcIntervalSeconds?: number }) => void;
+  onFetchGrades: () => void;
 }
 
 const AdminView: React.FC<AdminViewProps> = ({ 
@@ -47,7 +48,8 @@ const AdminView: React.FC<AdminViewProps> = ({
   lastConsolidationTime,
   autoCalcActive,
   autoCalcSeconds,
-  onUpdateSettings
+  onUpdateSettings,
+  onFetchGrades
 }) => {
   const [activeTab, setActiveTab] = useState<'investigation' | 'compare' | 'game' | 'manage'>('investigation');
   const [compareTab, setCompareTab] = useState<'ranking' | 'auto'>('ranking');
@@ -75,6 +77,13 @@ const AdminView: React.FC<AdminViewProps> = ({
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const metricDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Trigger grades fetch only when viewing compare ranking tab with selected teams
+  useEffect(() => {
+    if (activeTab === 'compare' && compareTab === 'ranking' && compareSelectedTeams.length > 0) {
+      onFetchGrades();
+    }
+  }, [activeTab, compareTab, compareSelectedTeams, onFetchGrades]);
   const investigationDropdownRef = useRef<HTMLDivElement>(null);
   const gameTeamDropdownRef = useRef<HTMLDivElement>(null);
   const gameMatchDropdownRef = useRef<HTMLDivElement>(null);
@@ -248,10 +257,10 @@ const AdminView: React.FC<AdminViewProps> = ({
       if (row.teleHumanPlayer) stats.teleHuman++;
       if (row.autoIntakeUsed) stats.autoIntake++;
       
-      if (row.autoZoneType === 'big') stats.autoBig++;
-      if (row.autoZoneType === 'small') stats.autoSmall++;
-      if (row.teleBigTriangle_Short > 0) stats.teleBig++;
-      if (row.teleSmallTriangle_Long > 0) stats.teleSmall++;
+      if (row.isAutoZoneBig) stats.autoBig++;
+      if (row.isAutoZoneSmall) stats.autoSmall++;
+      if (row.isTeleopZoneBig) stats.teleBig++;
+      if (row.isTeleopZoneSmall) stats.teleSmall++;
       if (row.autoMobility_Leave) stats.autoLeave++;
       
       if (row.teleIntakeFoul) stats.foulIntake++;
@@ -299,7 +308,7 @@ const AdminView: React.FC<AdminViewProps> = ({
         total: stats.foulTotal
       }
     };
-  }, [history, searchTeam]);
+  }, [history.length, searchTeam]);
 
   const filteredData = useMemo(() => {
     if (!searchTeam) return [];
@@ -341,7 +350,7 @@ const AdminView: React.FC<AdminViewProps> = ({
           raw: row
         };
       });
-  }, [history, searchTeam]);
+  }, [history.length, searchTeam]);
 
   const investigationTotals = useMemo(() => {
     if (filteredData.length === 0) return null;
@@ -413,7 +422,7 @@ const AdminView: React.FC<AdminViewProps> = ({
     });
     
     return Object.values(matchMap).sort((a, b) => parseInt(a.match) - parseInt(b.match));
-  }, [history, compareSelectedTeams, selectedMetrics]);
+  }, [history.length, compareSelectedTeams, selectedMetrics]);
 
   const COLORS = ['#818cf8', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316'];
 
@@ -776,6 +785,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                             strokeWidth={3} 
                             dot={{ r: 6 }} 
                             activeDot={{ r: 8 }} 
+                            isAnimationActive={false}
                           />
                         )}
                         {selectedInvestigationMetrics.includes('miss') && (
@@ -787,6 +797,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                             stroke="#ef4444" 
                             strokeWidth={2} 
                             dot={{ r: 4 }} 
+                            isAnimationActive={false}
                           />
                         )}
                         {selectedInvestigationMetrics.includes('ratio') && (
@@ -799,6 +810,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                             strokeWidth={2} 
                             strokeDasharray="5 5"
                             dot={{ r: 4 }} 
+                            isAnimationActive={false}
                           />
                         )}
 
@@ -813,6 +825,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                               stroke="#f59e0b" 
                               strokeWidth={3} 
                               dot={{ r: 6 }} 
+                              isAnimationActive={false}
                             />
                             <Line 
                               yAxisId="primary"
@@ -822,6 +835,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                               stroke="#ef4444" 
                               strokeWidth={1} 
                               strokeDasharray="3 3"
+                              isAnimationActive={false}
                             />
                             <Line 
                               yAxisId="primary"
@@ -831,6 +845,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                               stroke="#3b82f6" 
                               strokeWidth={1} 
                               strokeDasharray="3 3"
+                              isAnimationActive={false}
                             />
                             <Line 
                               yAxisId="primary"
@@ -840,6 +855,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                               stroke="#10b981" 
                               strokeWidth={1} 
                               strokeDasharray="3 3"
+                              isAnimationActive={false}
                             />
                           </>
                         )}
@@ -957,7 +973,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                             <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                               <td className="py-4 px-6 font-bold text-slate-900 border-r border-slate-200">{raw.matchNumber || raw.gameNumber}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
-                                {raw.autoZoneType === 'big' ? t.bigTriangle : raw.autoZoneType === 'small' ? t.smallTriangle : raw.autoZoneType}
+                                {raw.isAutoZoneBig ? t.bigTriangle : raw.isAutoZoneSmall ? t.smallTriangle : '-'}
                               </td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoIntakeUsed ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallHit}</td>
@@ -1166,7 +1182,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                                 <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                                   <td className="py-4 px-6 font-bold text-slate-900 border-r border-slate-200">{row.matchNumber || row.gameNumber}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
-                                    {row.autoZoneType === 'big' ? t.bigTriangle : row.autoZoneType === 'small' ? t.smallTriangle : row.autoZoneType}
+                                    {row.isAutoZoneBig ? t.bigTriangle : row.isAutoZoneSmall ? t.smallTriangle : '-'}
                                   </td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoIntakeUsed ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoBallHit}</td>

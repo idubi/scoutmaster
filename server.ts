@@ -93,15 +93,6 @@ async function startServer() {
           message: `The sheet "${sheetName}" was not found in the spreadsheet.`
         });
       }
-
-      // Aggregation Logic for TEAMS_GRADES
-      if (recordType === 'MATCH_COMPLETE') {
-        try {
-          await updateTeamsGrades(targetSheetId, req.body);
-        } catch (aggError) {
-          console.error("Aggregation Error:", aggError);
-        }
-      }
       
       res.status(response.status).send(responseText);
     } catch (error) {
@@ -194,6 +185,7 @@ async function startServer() {
     const TEAMS_GRADES_HEADERS = [
       'TeamNumber', 'GAMES_COUNT', 'TOTAL_TELEOP_HIT', 'TOTAL_AUTONOMUS_HIT', 
       'TOTAL_TELEOP_MISS', 'TOTAL_AUTONOMUS_MISS', 'TOTAL_IS_FULL_PARKING', 
+      'TOTAL_AUTO_ZONE_SMALL', 'TOTAL_AUTO_ZONE_BIG', 'TOTAL_TELEOP_ZONE_SMALL', 'TOTAL_TELEOP_ZONE_BIG',
       'TOTAL_FOULS', 'TOTAL_GATE_FOULS', 'TOTAL_PARKING_FOULS', 'TOTAL_INTAKE_FOULS',
       'GRADE', 'RATIO', 'RANK'
     ];
@@ -223,6 +215,10 @@ async function startServer() {
                     TOTAL_TELEOP_MISS: Number(row.TOTAL_TELEOP_MISS || 0),
                     TOTAL_AUTONOMUS_MISS: Number(row.TOTAL_AUTONOMUS_MISS || 0),
                     TOTAL_IS_FULL_PARKING: Number(row.TOTAL_IS_FULL_PARKING || 0),
+                    TOTAL_AUTO_ZONE_SMALL: Number(row.TOTAL_AUTO_ZONE_SMALL || 0),
+                    TOTAL_AUTO_ZONE_BIG: Number(row.TOTAL_AUTO_ZONE_BIG || 0),
+                    TOTAL_TELEOP_ZONE_SMALL: Number(row.TOTAL_TELEOP_ZONE_SMALL || 0),
+                    TOTAL_TELEOP_ZONE_BIG: Number(row.TOTAL_TELEOP_ZONE_BIG || 0),
                     TOTAL_FOULS: Number(row.TOTAL_FOULS || 0),
                     TOTAL_GATE_FOULS: Number(row.TOTAL_GATE_FOULS || 0),
                     TOTAL_PARKING_FOULS: Number(row.TOTAL_PARKING_FOULS || 0),
@@ -255,6 +251,11 @@ async function startServer() {
             isFullParking = 1;
           }
 
+          const autoSmall = newMatchData.isAutoZoneSmall ? 1 : 0;
+          const autoBig = newMatchData.isAutoZoneBig ? 1 : 0;
+          const teleSmall = newMatchData.isTeleopZoneSmall ? 1 : 0;
+          const teleBig = newMatchData.isTeleopZoneBig ? 1 : 0;
+
           const gateFoul = Number(newMatchData.teleGateFoul || 0);
           const parkingFoul = Number(newMatchData.teleParkingFoul || 0);
           const intakeFoul = Number(newMatchData.teleIntakeFoul || 0);
@@ -271,6 +272,10 @@ async function startServer() {
             existing.TOTAL_TELEOP_MISS += teleMiss;
             existing.TOTAL_AUTONOMUS_MISS += autoMiss;
             existing.TOTAL_IS_FULL_PARKING += isFullParking;
+            existing.TOTAL_AUTO_ZONE_SMALL += autoSmall;
+            existing.TOTAL_AUTO_ZONE_BIG += autoBig;
+            existing.TOTAL_TELEOP_ZONE_SMALL += teleSmall;
+            existing.TOTAL_TELEOP_ZONE_BIG += teleBig;
             existing.TOTAL_FOULS += fouls;
             existing.TOTAL_GATE_FOULS += gateFoul;
             existing.TOTAL_PARKING_FOULS += parkingFoul;
@@ -284,6 +289,10 @@ async function startServer() {
               TOTAL_TELEOP_MISS: teleMiss,
               TOTAL_AUTONOMUS_MISS: autoMiss,
               TOTAL_IS_FULL_PARKING: isFullParking,
+              TOTAL_AUTO_ZONE_SMALL: autoSmall,
+              TOTAL_AUTO_ZONE_BIG: autoBig,
+              TOTAL_TELEOP_ZONE_SMALL: teleSmall,
+              TOTAL_TELEOP_ZONE_BIG: teleBig,
               TOTAL_FOULS: fouls,
               TOTAL_GATE_FOULS: gateFoul,
               TOTAL_PARKING_FOULS: parkingFoul,
@@ -329,6 +338,11 @@ async function startServer() {
             isFullParking = 1;
           }
 
+          const autoSmall = match.isAutoZoneSmall === true || match.isAutoZoneSmall === 'TRUE' ? 1 : 0;
+          const autoBig = match.isAutoZoneBig === true || match.isAutoZoneBig === 'TRUE' ? 1 : 0;
+          const teleSmall = match.isTeleopZoneSmall === true || match.isTeleopZoneSmall === 'TRUE' ? 1 : 0;
+          const teleBig = match.isTeleopZoneBig === true || match.isTeleopZoneBig === 'TRUE' ? 1 : 0;
+
           const gateFoul = Number(match.teleGateFoul || 0);
           const parkingFoul = Number(match.teleParkingFoul || 0);
           const intakeFoul = Number(match.teleIntakeFoul || 0);
@@ -345,6 +359,10 @@ async function startServer() {
             existing.TOTAL_TELEOP_MISS += teleMiss;
             existing.TOTAL_AUTONOMUS_MISS += autoMiss;
             existing.TOTAL_IS_FULL_PARKING += isFullParking;
+            existing.TOTAL_AUTO_ZONE_SMALL += autoSmall;
+            existing.TOTAL_AUTO_ZONE_BIG += autoBig;
+            existing.TOTAL_TELEOP_ZONE_SMALL += teleSmall;
+            existing.TOTAL_TELEOP_ZONE_BIG += teleBig;
             existing.TOTAL_FOULS += fouls;
             existing.TOTAL_GATE_FOULS += gateFoul;
             existing.TOTAL_PARKING_FOULS += parkingFoul;
@@ -358,6 +376,10 @@ async function startServer() {
               TOTAL_TELEOP_MISS: teleMiss,
               TOTAL_AUTONOMUS_MISS: autoMiss,
               TOTAL_IS_FULL_PARKING: isFullParking,
+              TOTAL_AUTO_ZONE_SMALL: autoSmall,
+              TOTAL_AUTO_ZONE_BIG: autoBig,
+              TOTAL_TELEOP_ZONE_SMALL: teleSmall,
+              TOTAL_TELEOP_ZONE_BIG: teleBig,
               TOTAL_FOULS: fouls,
               TOTAL_GATE_FOULS: gateFoul,
               TOTAL_PARKING_FOULS: parkingFoul,
