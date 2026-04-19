@@ -16,14 +16,14 @@ const MATCHES = [1, 2, 3, 4, 5, 6];
 const POSITIONS = ['Red 1', 'Red 2', 'Blue 1', 'Blue 2'];
 
 const ALL_HEADERS = [
-  'Timestamp', '.',  'isAutoZoneSmall', 'isAutoZoneBig', 
+  '.',  'isAutoZoneSmall', 'isAutoZoneBig', 
   'isAutoLeave', 
   'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes',
   'teleBallHit', 'teleBallMiss',
   'teleFieldAwareness',
   'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
   'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
-  'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType', 'targetSheetId'
+  'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType'
 ];
 
 async function syncToSpreadsheet(data: any) {
@@ -58,7 +58,6 @@ function generateData(team: string, match: number, position: string) {
 
   const row: any = {
     sessionId: 'synthetic-' + Math.random().toString(36).substr(2, 9),
-    Timestamp: new Date().toLocaleString(),
     timestamp: new Date().toLocaleString(),
     sessionStartTime: new Date().toISOString(),
     sessionEndTime: new Date().toISOString(),
@@ -94,7 +93,6 @@ function generateData(team: string, match: number, position: string) {
     teleComments: 'Good performance in match ' + match,
     aiAnalysis: 'Synthetic analysis',
     recordType: 'MATCH_COMPLETE',
-    targetSheetId: SPREADSHEET_ID,
   };
   return row;
 }

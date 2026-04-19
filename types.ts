@@ -106,12 +106,10 @@ export interface SpreadsheetRow {
   teleComments: string;
   aiAnalysis?: string;
   recordType: 'SESSION_START' | 'AUTO_COMPLETE' | 'TELEOP_COMPLETE' | 'MATCH_COMPLETE';
-  targetSheetId: string;
   sheetName?: string;
   headers?: string[];
 
   // Hebrew Mapped Fields for demo-table
-  'Timestamp'?: string;
   '.'?: string;
   'teleFullParking'?: boolean;
 }

@@ -28,7 +28,7 @@ const SHEET_NAME = 'scoutsmaster_ongoing'; // Set your sheet name here
 
 const ALL_HEADERS = [
   // Hebrew Headers (Matching demo-table order)
-  'Timestamp', 'isAutoZoneSmall', 'isAutoZoneBig', 
+  'isAutoZoneSmall', 'isAutoZoneBig', 
   'isAutoLeave', 'isTeleopZoneSmall', 'isTeleopZoneBig', 'teleFullParking', 
   // Internal App Headers
   'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
@@ -40,7 +40,7 @@ const ALL_HEADERS = [
   'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
   'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
   'teleFullParking',
-  'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType', 'targetSheetId'
+  'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType'
 ];
 
 const generateGUID = () => {
@@ -185,7 +185,6 @@ const App: React.FC = () => {
 
     const row: Partial<SpreadsheetRow> = {
       sessionId: activeUser.sessionId || '',
-      Timestamp: new Date().toLocaleString(),
       timestamp: new Date().toLocaleString(),
       sessionStartTime: activeUser.sessionStartTime ? new Date(activeUser.sessionStartTime).toISOString() : '',
       sessionEndTime: recordType === 'MATCH_COMPLETE' ? new Date().toISOString() : '',

@@ -98,7 +98,7 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
     const teams = ['15811', '15928', '25041'];
     const scouterNames = ['TestScouter1', 'TestScouter2', 'TestScouter3'];
     const ALL_HEADERS = [
-      'Timestamp', 'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
+      'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
       'matchNumber', 'teamScouted', 'role',  
       'autoMobility_Leave', 
       'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes',
@@ -109,7 +109,7 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
       'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
       'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
       'teleFullParking',
-      'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType', 'targetSheetId'
+      'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType'
     ];
 
     try {
@@ -126,7 +126,6 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
           const teleTotalScore = teleBallHit + (teleSmall * 3) + (teleBig * 2) + (teleGate * 1);
 
           const row = {
-            Timestamp: new Date().toLocaleString(),
             sessionId: `seed-${Math.random().toString(36).substr(2, 9)}`,
             timestamp: new Date().toLocaleString(),
             sessionStartTime: new Date().toISOString(),
