@@ -15,7 +15,7 @@ export enum Language {
 export interface User {
   teamScouted: string; // The team we are scouting
   name: string; // The name of the scouter
-  gameNumber: string; // The match/game number
+  matchNumber: string; // The match/game number
   role: 'scouter' | 'admin' | 'guest';
   allianceColor?: 'Red' | 'Blue';
   sessionId?: string;
@@ -74,20 +74,18 @@ export interface SpreadsheetRow {
   sessionStartTime: string;
   sessionEndTime?: string;
   name: string;
-  gameNumber: string;
-  allianceColor?: string;
   matchNumber: string;
+  allianceColor?: string;
   teamScouted: string;
   role?: string;
   isAutoZoneSmall: boolean;
   isAutoZoneBig: boolean;
-  autoMobility_Leave: boolean;
+  isAutoLeave: boolean;
   autoOpenGate: boolean;
   autoIntakeUsed: boolean;
   autoBallHit: number;
   autoBallMiss: number;
   autoNotes: string;
-  autoTotalScore: number;
   teleBallHit: number;
   isTeleopZoneSmall: boolean;
   isTeleopZoneBig: boolean;
@@ -106,7 +104,6 @@ export interface SpreadsheetRow {
   teleHumanPlayer: boolean;
   teleFloor: boolean;
   teleComments: string;
-  teleTotalScore: number;
   aiAnalysis?: string;
   recordType: 'SESSION_START' | 'AUTO_COMPLETE' | 'TELEOP_COMPLETE' | 'MATCH_COMPLETE';
   targetSheetId: string;
@@ -123,9 +120,8 @@ export interface SpreadsheetRow {
   'אוטונומי - נסע מהמקום'?: string;
   'אוטונומי - כדור מנוקד'?: number;
   'אוטונומי - כדורים שהוחטאו'?: number;
-  'הרובוט עשה leave?'?: string;
   'טלאופ - כדור מנוקד'?: number;
-  'טלאופ - חניה'?: string;
+  'teleFullParking'?: boolean;
   'איסוף '?: string;
   'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)'?: string;
 }
@@ -142,6 +138,7 @@ export interface TeamAggregatedData {
   TOTAL_AUTO_ZONE_BIG: number;
   TOTAL_TELEOP_ZONE_SMALL: number;
   TOTAL_TELEOP_ZONE_BIG: number;
+  TOTAL_AUTO_LEAVE: number;
   TOTAL_FOULS: number;
   TOTAL_GATE_FOULS: number;
   TOTAL_PARKING_FOULS: number;

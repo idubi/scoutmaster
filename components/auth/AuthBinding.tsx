@@ -32,7 +32,7 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
 }) => {
   const [name, setName] = useState(initialName);
   const [teamScouted, setTeamScouted] = useState(initialTeamNumber);
-  const [gameNumber, setGameNumber] = useState(initialMatchNumber);
+  const [matchNumber, setMatchNumber] = useState(initialMatchNumber);
   const [role, setRole] = useState<'scouter' | 'admin'>(initialRole);
   const [allianceColor, setAllianceColor] = useState<'Red' | 'Blue'>(initialAllianceColor);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
     setError(null);
     if (newRole === 'admin') {
       setTeamScouted('');
-      setGameNumber('');
+      setMatchNumber('');
     }
   };
 
@@ -57,11 +57,11 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
       onSubmit({ 
         name: name || 'Admin', 
         teamScouted: '0', 
-        gameNumber: '0', 
+        matchNumber: '0', 
         role 
       }, mode);
-    } else if (name && teamScouted && gameNumber) {
-      onSubmit({ name, teamScouted, gameNumber, role, allianceColor });
+    } else if (name && teamScouted && matchNumber) {
+      onSubmit({ name, teamScouted, matchNumber, role, allianceColor });
     }
   };
 
@@ -72,7 +72,7 @@ const AuthBinding: React.FC<AuthBindingProps> = ({
       language={language}
       name={name} setName={setName}
       teamScouted={teamScouted} setTeamScouted={setTeamScouted}
-      gameNumber={gameNumber} setGameNumber={setGameNumber}
+      matchNumber={matchNumber} setMatchNumber={setMatchNumber}
       role={role} setRole={handleRoleChange}
       allianceColor={allianceColor} setAllianceColor={setAllianceColor}
       onSubmit={handleSubmit}

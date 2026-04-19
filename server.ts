@@ -185,7 +185,7 @@ async function startServer() {
     const TEAMS_GRADES_HEADERS = [
       'TeamNumber', 'GAMES_COUNT', 'TOTAL_TELEOP_HIT', 'TOTAL_AUTONOMUS_HIT', 
       'TOTAL_TELEOP_MISS', 'TOTAL_AUTONOMUS_MISS', 'TOTAL_IS_FULL_PARKING', 
-      'TOTAL_AUTO_ZONE_SMALL', 'TOTAL_AUTO_ZONE_BIG', 'TOTAL_TELEOP_ZONE_SMALL', 'TOTAL_TELEOP_ZONE_BIG',
+      'TOTAL_AUTO_ZONE_SMALL', 'TOTAL_AUTO_ZONE_BIG', 'TOTAL_TELEOP_ZONE_SMALL', 'TOTAL_TELEOP_ZONE_BIG', 'TOTAL_AUTO_LEAVE',
       'TOTAL_FOULS', 'TOTAL_GATE_FOULS', 'TOTAL_PARKING_FOULS', 'TOTAL_INTAKE_FOULS',
       'GRADE', 'RATIO', 'RANK'
     ];
@@ -219,6 +219,7 @@ async function startServer() {
                     TOTAL_AUTO_ZONE_BIG: Number(row.TOTAL_AUTO_ZONE_BIG || 0),
                     TOTAL_TELEOP_ZONE_SMALL: Number(row.TOTAL_TELEOP_ZONE_SMALL || 0),
                     TOTAL_TELEOP_ZONE_BIG: Number(row.TOTAL_TELEOP_ZONE_BIG || 0),
+                    TOTAL_AUTO_LEAVE: Number(row.TOTAL_AUTO_LEAVE || 0),
                     TOTAL_FOULS: Number(row.TOTAL_FOULS || 0),
                     TOTAL_GATE_FOULS: Number(row.TOTAL_GATE_FOULS || 0),
                     TOTAL_PARKING_FOULS: Number(row.TOTAL_PARKING_FOULS || 0),
@@ -237,24 +238,23 @@ async function startServer() {
         }
 
         // 2. Update the specific team from newMatchData
-        const teamNumber = String(newMatchData.teamScouted || newMatchData['מספר קבוצה'] || '').trim();
+        const teamNumber = String(newMatchData.teamScouted || '').trim();
         if (teamNumber) {
-          const teleHit = Number(newMatchData.teleBallHit || newMatchData['טלאופ - כדור מנוקד'] || 0);
-          const autoHit = Number(newMatchData.autoBallHit || newMatchData['אוטונומי - כדור מנוקד'] || 0);
+          const teleHit = Number(newMatchData.teleBallHit || 0);
+          const autoHit = Number(newMatchData.autoBallHit || 0);
           const teleMiss = Number(newMatchData.teleBallMiss || 0);
-          const autoMiss = Number(newMatchData.autoBallMiss || newMatchData['אוטונומי - כדורים שהוחטאו'] || 0);
+          const autoMiss = Number(newMatchData.autoBallMiss || 0);
           
           let isFullParking = 0;
           if (newMatchData.teleFullParking !== undefined) {
             isFullParking = newMatchData.teleFullParking ? 1 : 0;
-          } else if (newMatchData['טלאופ - חניה'] === 'חניה מלאה') {
-            isFullParking = 1;
           }
 
           const autoSmall = newMatchData.isAutoZoneSmall ? 1 : 0;
           const autoBig = newMatchData.isAutoZoneBig ? 1 : 0;
           const teleSmall = newMatchData.isTeleopZoneSmall ? 1 : 0;
           const teleBig = newMatchData.isTeleopZoneBig ? 1 : 0;
+          const autoLeave = newMatchData.isAutoLeave ? 1 : 0;
 
           const gateFoul = Number(newMatchData.teleGateFoul || 0);
           const parkingFoul = Number(newMatchData.teleParkingFoul || 0);
@@ -276,6 +276,7 @@ async function startServer() {
             existing.TOTAL_AUTO_ZONE_BIG += autoBig;
             existing.TOTAL_TELEOP_ZONE_SMALL += teleSmall;
             existing.TOTAL_TELEOP_ZONE_BIG += teleBig;
+            existing.TOTAL_AUTO_LEAVE += autoLeave;
             existing.TOTAL_FOULS += fouls;
             existing.TOTAL_GATE_FOULS += gateFoul;
             existing.TOTAL_PARKING_FOULS += parkingFoul;
@@ -293,6 +294,7 @@ async function startServer() {
               TOTAL_AUTO_ZONE_BIG: autoBig,
               TOTAL_TELEOP_ZONE_SMALL: teleSmall,
               TOTAL_TELEOP_ZONE_BIG: teleBig,
+              TOTAL_AUTO_LEAVE: autoLeave,
               TOTAL_FOULS: fouls,
               TOTAL_GATE_FOULS: gateFoul,
               TOTAL_PARKING_FOULS: parkingFoul,
@@ -323,25 +325,24 @@ async function startServer() {
           const recType = match.recordType || match['recordType'];
           if (recType && recType !== 'MATCH_COMPLETE') return;
           
-          const teamNumber = String(match.teamScouted || match['מספר קבוצה'] || '').trim();
+          const teamNumber = String(match.teamScouted || '').trim();
           if (!teamNumber) return;
 
-          const teleHit = Number(match.teleBallHit || match['טלאופ - כדור מנוקד'] || 0);
-          const autoHit = Number(match.autoBallHit || match['אוטונומי - כדור מנוקד'] || 0);
+          const teleHit = Number(match.teleBallHit || 0);
+          const autoHit = Number(match.autoBallHit || 0);
           const teleMiss = Number(match.teleBallMiss || 0);
-          const autoMiss = Number(match.autoBallMiss || match['אוטונומי - כדורים שהוחטאו'] || 0);
+          const autoMiss = Number(match.autoBallMiss || 0);
           
           let isFullParking = 0;
           if (match.teleFullParking !== undefined) {
             isFullParking = match.teleFullParking ? 1 : 0;
-          } else if (match['טלאופ - חניה'] === 'חניה מלאה') {
-            isFullParking = 1;
           }
 
           const autoSmall = match.isAutoZoneSmall === true || match.isAutoZoneSmall === 'TRUE' ? 1 : 0;
           const autoBig = match.isAutoZoneBig === true || match.isAutoZoneBig === 'TRUE' ? 1 : 0;
           const teleSmall = match.isTeleopZoneSmall === true || match.isTeleopZoneSmall === 'TRUE' ? 1 : 0;
           const teleBig = match.isTeleopZoneBig === true || match.isTeleopZoneBig === 'TRUE' ? 1 : 0;
+          const autoLeave = match.isAutoLeave === true || match.isAutoLeave === 'TRUE' ? 1 : 0;
 
           const gateFoul = Number(match.teleGateFoul || 0);
           const parkingFoul = Number(match.teleParkingFoul || 0);
@@ -363,6 +364,7 @@ async function startServer() {
             existing.TOTAL_AUTO_ZONE_BIG += autoBig;
             existing.TOTAL_TELEOP_ZONE_SMALL += teleSmall;
             existing.TOTAL_TELEOP_ZONE_BIG += teleBig;
+            existing.TOTAL_AUTO_LEAVE += autoLeave;
             existing.TOTAL_FOULS += fouls;
             existing.TOTAL_GATE_FOULS += gateFoul;
             existing.TOTAL_PARKING_FOULS += parkingFoul;
@@ -380,6 +382,7 @@ async function startServer() {
               TOTAL_AUTO_ZONE_BIG: autoBig,
               TOTAL_TELEOP_ZONE_SMALL: teleSmall,
               TOTAL_TELEOP_ZONE_BIG: teleBig,
+              TOTAL_AUTO_LEAVE: autoLeave,
               TOTAL_FOULS: fouls,
               TOTAL_GATE_FOULS: gateFoul,
               TOTAL_PARKING_FOULS: parkingFoul,

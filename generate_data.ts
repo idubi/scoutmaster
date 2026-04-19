@@ -16,19 +16,14 @@ const MATCHES = [1, 2, 3, 4, 5, 6];
 const POSITIONS = ['Red 1', 'Red 2', 'Blue 1', 'Blue 2'];
 
 const ALL_HEADERS = [
-  'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', '.', 'isAutoZoneSmall', 'isAutoZoneBig', 
-  'אוטונומי - נסע מהמקום', 'אוטונומי - כדור מנוקד', 'אוטונומי - כדורים שהוחטאו', 
-  'הרובוט עשה leave?', 'טלאופ - כדור מנוקד', 'טלאופ - חניה', 'isTeleopZoneSmall', 'isTeleopZoneBig', 'איסוף ', 
-  'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)',
-  'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
-  'gameNumber', 'matchNumber', 'teamScouted', 'role',  
-  'autoMobility_Leave', 
-  'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
+  'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', '.',  'isAutoZoneSmall', 'isAutoZoneBig', 
+  'isAutoLeave', 
+  'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes',
   'teleBallHit', 'teleBallMiss',
   'teleFieldAwareness',
   'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
   'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
-  'teleHumanPlayer', 'teleFloor', 'teleComments', 'teleTotalScore', 'aiAnalysis', 'recordType', 'targetSheetId'
+  'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType', 'targetSheetId'
 ];
 
 async function syncToSpreadsheet(data: any) {
@@ -67,19 +62,17 @@ function generateData(team: string, match: number, position: string) {
     sessionStartTime: new Date().toISOString(),
     sessionEndTime: new Date().toISOString(),
     name: scouterName,
-    gameNumber: match.toString(),
     matchNumber: match.toString(),
     teamScouted: team,
     role: 'scouter',
     isAutoZoneSmall: zoneType === 'small',
     isAutoZoneBig: zoneType === 'big',
-    autoMobility_Leave: leave,
+    isAutoLeave: leave,
     autoOpenGate: Math.random() > 0.5,
     autoIntakeUsed: Math.random() > 0.5,
     autoBallHit: autoBallHit,
     autoBallMiss: autoBallMiss,
     autoNotes: 'Synthetic data generation',
-    autoTotalScore: autoBallHit * 5 + (leave ? 2 : 0),
     teleBallHit: teleBallHit,
     isTeleopZoneSmall: long > 0,
     isTeleopZoneBig: short > 0,
@@ -98,25 +91,9 @@ function generateData(team: string, match: number, position: string) {
     teleHumanPlayer: human,
     teleFloor: floor,
     teleComments: 'Good performance in match ' + match,
-    teleTotalScore: teleBallHit * 2 + (lift ? 10 : (full ? 6 : 0)),
     aiAnalysis: 'Synthetic analysis',
     recordType: 'MATCH_COMPLETE',
     targetSheetId: SPREADSHEET_ID,
-
-    // Hebrew Mapping
-    'Timestamp': new Date().toISOString(),
-    'שם הסקאוטר': scouterName,
-    'מספר קבוצה': team,
-    'מספר מקצה': match.toString(),
-    '.': '',
-    'אוטונומי - נסע מהמקום': leave ? 'כן' : 'לא',
-    'אוטונומי - כדור מנוקד': autoBallHit,
-    'אוטונומי - כדורים שהוחטאו': autoBallMiss,
-    'הרובוט עשה leave?': leave ? 'leave' : 'לא',
-    'טלאופ - כדור מנוקד': teleBallHit,
-    'טלאופ - חניה': lift ? 'מעלית' : (full ? 'חניה מלאה' : 'לא מעלית'),
-    'איסוף ': `${floor ? 'איסוף מהרצפה' : ''}${floor && human ? ', ' : ''}${human ? 'איסוף מהשחקן האנושי' : ''}` || 'לא אספו',
-    'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)': 'מידע סינתטי - משחק ' + match
   };
   return row;
 }

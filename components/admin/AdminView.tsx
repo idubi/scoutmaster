@@ -971,7 +971,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                           const raw = row.raw;
                           return (
                             <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                              <td className="py-4 px-6 font-bold text-slate-900 border-r border-slate-200">{raw.matchNumber || raw.gameNumber}</td>
+                              <td className="py-4 px-6 font-bold text-slate-900 border-r border-slate-200">{raw.matchNumber}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
                                 {raw.isAutoZoneBig ? t.bigTriangle : raw.isAutoZoneSmall ? t.smallTriangle : '-'}
                               </td>
@@ -1180,7 +1180,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                               .sort((a, b) => parseInt(a.matchNumber || '0') - parseInt(b.matchNumber || '0'))
                               .map((row, idx) => (
                                 <tr key={idx} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
-                                  <td className="py-4 px-6 font-bold text-slate-900 border-r border-slate-200">{row.matchNumber || row.gameNumber}</td>
+                                  <td className="py-4 px-6 font-bold text-slate-900 border-r border-slate-200">{row.matchNumber}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
                                     {row.isAutoZoneBig ? t.bigTriangle : row.isAutoZoneSmall ? t.smallTriangle : '-'}
                                   </td>

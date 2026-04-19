@@ -29,21 +29,20 @@ const SHEET_NAME = 'scoutsmaster_ongoing'; // Set your sheet name here
 const ALL_HEADERS = [
   // Hebrew Headers (Matching demo-table order)
   'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', 'צבע ברית', 'isAutoZoneSmall', 'isAutoZoneBig', 
-  'אוטונומי - נסע מהמקום', 'אוטונומי - כדור מנוקד', 'אוטונומי - כדורים שהוחטאו', 
-  'הרובוט עשה leave?', 'טלאופ - כדור מנוקד', 'טלאופ - חניה', 'isTeleopZoneSmall', 'isTeleopZoneBig', 'איסוף ', 
+  'אוטונומי - כדור מנוקד', 'אוטונומי - כדורים שהוחטאו', 
+  'isAutoLeave', 'טלאופ - כדור מנוקד', 'isTeleopZoneSmall', 'isTeleopZoneBig', 'teleFullParking', 'איסוף ', 
   'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)',
   // Internal App Headers
   'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
-  'gameNumber', 'allianceColor', 'matchNumber', 'teamScouted', 'role', 
-  'autoMobility_Leave', 
-  'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
+  'allianceColor', 'matchNumber', 'teamScouted', 'role', 
+  'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes',
   'teleBallHit', 
   'teleBallMiss',
   'teleFieldAwareness',
   'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
   'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
   'teleFullParking',
-  'teleHumanPlayer', 'teleFloor', 'teleComments', 'teleTotalScore', 'aiAnalysis', 'recordType', 'targetSheetId'
+  'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType', 'targetSheetId'
 ];
 
 const generateGUID = () => {
@@ -106,7 +105,7 @@ const App: React.FC = () => {
 
     return historyData.some(row => {
       const rowTeam = String(row['מספר קבוצה'] || row.teamScouted || '').trim();
-      const rowMatch = String(row['מספר מקצה'] || row.gameNumber || row.matchNumber || '').trim();
+      const rowMatch = String(row.matchNumber || '').trim();
       const rowName = String(row['שם הסקאוטר'] || row.name || '').trim().toLowerCase();
       const rowRecordType = row['recordType'];
       
@@ -162,37 +161,23 @@ const App: React.FC = () => {
       sessionStartTime: activeUser.sessionStartTime ? new Date(activeUser.sessionStartTime).toISOString() : '',
       sessionEndTime: recordType === 'MATCH_COMPLETE' ? new Date().toISOString() : '',
       name: activeUser.name,
-      gameNumber: activeUser.gameNumber,
+      matchNumber: currentAuto?.matchNumber || activeUser.matchNumber,
       allianceColor: activeUser.allianceColor || '',
-      matchNumber: currentAuto?.matchNumber || activeUser.gameNumber,
       teamScouted: currentAuto?.teamScouted || activeUser.teamScouted,
       role: activeUser.role,
-      recordType,
-      
-      // Hebrew Mapping
-      'Timestamp': new Date().toISOString(),
-      'שם הסקאוטר': activeUser.name,
-      'מספר קבוצה': currentAuto?.teamScouted || activeUser.teamScouted,
-      'מספר מקצה': currentAuto?.matchNumber || activeUser.gameNumber,
-      'צבע ברית': activeUser.allianceColor || '',
-      'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)': recordType
+      recordType
     };
 
     if (currentAuto) {
       Object.assign(row, {
         isAutoZoneSmall: currentAuto.zoneType === 'small',
         isAutoZoneBig: currentAuto.zoneType === 'big',
-        autoMobility_Leave: currentAuto.leave,
+        isAutoLeave: currentAuto.leave,
         autoOpenGate: currentAuto.openGate,
         autoIntakeUsed: currentAuto.intake,
         autoBallHit: currentAuto.ballsSide,
         autoBallMiss: currentAuto.ballsMissed,
         autoNotes: currentAuto.freeText,
-        autoTotalScore: currentAuto.totalScore,
-        'אוטונומי - נסע מהמקום': currentAuto.leave ? 'כן' : 'לא',
-        'אוטונומי - כדור מנוקד': currentAuto.ballsSide,
-        'אוטונומי - כדורים שהוחטאו': currentAuto.ballsMissed,
-        'הרובוט עשה leave?': currentAuto.leave ? 'leave' : 'לא',
       });
     }
 
@@ -217,12 +202,7 @@ const App: React.FC = () => {
         teleHumanPlayer: currentTeleop.humanPlayer,
         teleFloor: currentTeleop.floor,
         teleComments: currentTeleop.comments,
-        teleTotalScore: currentTeleop.totalScore,
         aiAnalysis: aiAnalysisText || '',
-        'טלאופ - כדור מנוקד': currentTeleop.intake,
-        'טלאופ - חניה': currentTeleop.liftParkingType ? 'מעלית' : (currentTeleop.fullParkingType ? 'חניה מלאה' : 'לא מעלית'),
-        'איסוף ': `${currentTeleop.floor ? 'איסוף מהרצפה' : ''}${currentTeleop.floor && currentTeleop.humanPlayer ? ', ' : ''}${currentTeleop.humanPlayer ? 'איסוף מהשחקן האנושי' : ''}` || 'לא אספו',
-        'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)': currentTeleop.comments || recordType
       });
     }
 
@@ -299,7 +279,7 @@ const App: React.FC = () => {
         if (autoData) {
           setAutoData({
             ...autoData,
-            matchNumber: updatedUser.gameNumber,
+            matchNumber: updatedUser.matchNumber,
             teamScouted: updatedUser.teamScouted
           });
         }
@@ -385,7 +365,7 @@ const App: React.FC = () => {
           onSubmit={handleAuthSubmit} 
           language={language} 
           initialName={isUpdateMode ? user?.name : lastName}
-          initialMatchNumber={isUpdateMode ? user?.gameNumber : lastMatchNumber}
+          initialMatchNumber={isUpdateMode ? user?.matchNumber : lastMatchNumber}
           initialTeamNumber={isUpdateMode ? user?.teamScouted : ''}
           initialRole={isUpdateMode ? user?.role : 'scouter'}
           initialAllianceColor={isUpdateMode ? user?.allianceColor : 'Red'}
@@ -406,7 +386,7 @@ const App: React.FC = () => {
           onBack={() => setPhase(ScoutingPhase.AUTH)}
           onLogout={handleLogout}
           initialData={autoData || {
-            matchNumber: user?.gameNumber || '1',
+            matchNumber: user?.matchNumber || '1',
             teamScouted: user?.teamScouted || '',
             zoneType: '', leave: false,
             cycles: [
@@ -460,7 +440,7 @@ const App: React.FC = () => {
                 setHistory(latestHistory);
 
                 const team = autoData?.teamScouted || user?.teamScouted || '';
-                const match = autoData?.matchNumber || user?.gameNumber || '';
+                const match = autoData?.matchNumber || user?.matchNumber || '';
                 const name = user?.name || '';
 
                 if (checkDuplicate(latestHistory, team, match, name)) {
@@ -482,8 +462,8 @@ const App: React.FC = () => {
             await syncScoutData('MATCH_COMPLETE', autoData, teleopData, user, data.aiAnalysis);
             if (user) {
               setLastName(user.name);
-              const currentMatch = parseInt(user.gameNumber);
-              setLastMatchNumber(isNaN(currentMatch) ? user.gameNumber : (currentMatch + 1).toString());
+              const currentMatch = parseInt(user.matchNumber);
+              setLastMatchNumber(isNaN(currentMatch) ? user.matchNumber : (currentMatch + 1).toString());
             }
             setUser(null); setAutoData(null); setTeleopData(null); setPhase(ScoutingPhase.AUTH);
             setSummaryError(null);

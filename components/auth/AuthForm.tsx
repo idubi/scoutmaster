@@ -6,12 +6,12 @@ import { AuthTranslation_EN, AuthTranslation_HE } from '../translations';
 interface AuthFormProps {
   name: string;
   teamScouted: string;
-  gameNumber: string;
+  matchNumber: string;
   role: 'scouter' | 'admin';
   allianceColor: 'Red' | 'Blue';
   setName: (v: string) => void;
   setTeamScouted: (v: string) => void;
-  setGameNumber: (v: string) => void;
+  setMatchNumber: (v: string) => void;
   setRole: (v: 'scouter' | 'admin') => void;
   setAllianceColor: (v: 'Red' | 'Blue') => void;
   onSubmit: (e: React.FormEvent, mode?: 'investigate' | 'manage') => void;
@@ -72,8 +72,8 @@ const AuthForm: React.FC<AuthFormProps> = (props) => {
               disabled={props.role === 'admin'}
               className={`w-full bg-[#f8faff] border border-slate-100 rounded-2xl py-5 ${isRTL ? 'pr-14 pl-5 text-right' : 'pl-14 pr-5 text-left'} text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-300 font-bold ${isRTL ? 'text-lg' : 'text-base'} ${props.role === 'admin' ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}`}
               placeholder={t.matchNumber}
-              value={props.role === 'admin' ? '' : props.gameNumber}
-              onChange={(e) => props.setGameNumber(e.target.value)}
+              value={props.role === 'admin' ? '' : props.matchNumber}
+              onChange={(e) => props.setMatchNumber(e.target.value)}
             />
           </div>
 
