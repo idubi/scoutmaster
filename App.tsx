@@ -28,10 +28,8 @@ const SHEET_NAME = 'scoutsmaster_ongoing'; // Set your sheet name here
 
 const ALL_HEADERS = [
   // Hebrew Headers (Matching demo-table order)
-  'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', 'צבע ברית', 'isAutoZoneSmall', 'isAutoZoneBig', 
-  'אוטונומי - כדור מנוקד', 'אוטונומי - כדורים שהוחטאו', 
-  'isAutoLeave', 'טלאופ - כדור מנוקד', 'isTeleopZoneSmall', 'isTeleopZoneBig', 'teleFullParking', 'איסוף ', 
-  'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)',
+  'Timestamp', 'isAutoZoneSmall', 'isAutoZoneBig', 
+  'isAutoLeave', 'isTeleopZoneSmall', 'isTeleopZoneBig', 'teleFullParking', 
   // Internal App Headers
   'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
   'allianceColor', 'matchNumber', 'teamScouted', 'role', 
@@ -104,9 +102,9 @@ const App: React.FC = () => {
     const cleanName = String(name || '').trim().toLowerCase();
 
     return historyData.some(row => {
-      const rowTeam = String(row['מספר קבוצה'] || row.teamScouted || '').trim();
+      const rowTeam = String(row.teamScouted || '').trim();
       const rowMatch = String(row.matchNumber || '').trim();
-      const rowName = String(row['שם הסקאוטר'] || row.name || '').trim().toLowerCase();
+      const rowName = String(row.name || '').trim().toLowerCase();
       const rowRecordType = row['recordType'];
       
       // Only consider it a duplicate if it's a MATCH_COMPLETE record
@@ -145,6 +143,36 @@ const App: React.FC = () => {
     }
   };
 
+  const initializeSheet = async () => {
+    console.log('Initializing/Recreating sheet:', SHEET_NAME);
+    try {
+      const resp = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'recreate',
+          targetSheetId: SPREADSHEET_ID,
+          sheetName: SHEET_NAME,
+          headers: ALL_HEADERS
+        })
+      });
+      if (resp.ok) {
+        console.log('Sheet initialized successfully');
+        // Now that it exists, fetch history again (will likely be empty but headers will exist)
+        const historyResp = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=${SHEET_NAME}`);
+        if (historyResp.ok) {
+          const result = await historyResp.json().catch(() => []);
+          const dataArray = Array.isArray(result) ? result : (result.data && Array.isArray(result.data) ? result.data : []);
+          setHistory(dataArray);
+        }
+      } else {
+        console.error('Failed to initialize sheet:', await resp.text());
+      }
+    } catch (error) {
+      console.error('Error during sheet initialization:', error);
+    }
+  };
+
   const syncScoutData = async (
     recordType: 'SESSION_START' | 'AUTO_COMPLETE' | 'TELEOP_COMPLETE' | 'MATCH_COMPLETE',
     currentAuto?: AutoData | null,
@@ -157,6 +185,7 @@ const App: React.FC = () => {
 
     const row: Partial<SpreadsheetRow> = {
       sessionId: activeUser.sessionId || '',
+      Timestamp: new Date().toLocaleString(),
       timestamp: new Date().toLocaleString(),
       sessionStartTime: activeUser.sessionStartTime ? new Date(activeUser.sessionStartTime).toISOString() : '',
       sessionEndTime: recordType === 'MATCH_COMPLETE' ? new Date().toISOString() : '',
@@ -220,6 +249,13 @@ const App: React.FC = () => {
     try {
       console.log('Fetching history from proxy for sheet:', SHEET_NAME);
       const response = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=${SHEET_NAME}`);
+      
+      if (response.status === 404) {
+        console.warn('Sheet not found. Attempting to initialize...');
+        await initializeSheet();
+        return;
+      }
+
       if (response.ok) {
         const text = await response.text();
         // Check for specific Google Apps Script errors that mean "empty sheet"

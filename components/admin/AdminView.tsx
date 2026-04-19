@@ -346,7 +346,7 @@ const AdminView: React.FC<AdminViewProps> = ({
           intakeFoul: row.teleIntakeFoul ? 1 : 0,
           total: (row.autoTotalScore || 0) + (row.teleTotalScore || 0),
           autoNotes: row.autoNotes || '',
-          teleComments: row.teleComments || row['הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)'] || '',
+          teleComments: row.teleComments || '',
           raw: row
         };
       });

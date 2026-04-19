@@ -98,10 +98,10 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
     const teams = ['15811', '15928', '25041'];
     const scouterNames = ['TestScouter1', 'TestScouter2', 'TestScouter3'];
     const ALL_HEADERS = [
-      'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
-      'gameNumber', 'matchNumber', 'teamScouted', 'role',  
+      'Timestamp', 'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
+      'matchNumber', 'teamScouted', 'role',  
       'autoMobility_Leave', 
-      'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes', 'autoTotalScore',
+      'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes',
       'teleBallHit', 'teleBallMiss',
       'isTeleopZoneSmall', 'isTeleopZoneBig',
       'isAutoZoneSmall', 'isAutoZoneBig',
@@ -109,7 +109,7 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
       'teleLateTranslation', 'teleOverallSuccess', 'teleFastRebound', 'teleIsFrozen', 'teleConfused', 'teleStoppedScoring',
       'teleGateFoul', 'teleParkingFoul', 'teleIntakeFoul', 'teleFoulCount',
       'teleFullParking',
-      'teleHumanPlayer', 'teleFloor', 'teleComments', 'teleTotalScore', 'aiAnalysis', 'recordType', 'targetSheetId'
+      'teleHumanPlayer', 'teleFloor', 'teleComments', 'aiAnalysis', 'recordType', 'targetSheetId'
     ];
 
     try {
@@ -126,24 +126,22 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
           const teleTotalScore = teleBallHit + (teleSmall * 3) + (teleBig * 2) + (teleGate * 1);
 
           const row = {
+            Timestamp: new Date().toLocaleString(),
             sessionId: `seed-${Math.random().toString(36).substr(2, 9)}`,
             timestamp: new Date().toLocaleString(),
             sessionStartTime: new Date().toISOString(),
             sessionEndTime: new Date().toISOString(),
             name: scouterNames[Math.floor(Math.random() * scouterNames.length)],
-            gameNumber: i.toString(),
             matchNumber: i.toString(),
             teamScouted: team,
             role: 'scouter',
             isAutoZoneSmall: Math.random() > 0.5,
             isAutoZoneBig: Math.random() > 0.5,
-            autoMobility_Leave: autoMobility,
             autoOpenGate: Math.random() > 0.8,
             autoIntakeUsed: Math.random() > 0.5,
             autoBallHit: autoBallHit,
             autoBallMiss: Math.floor(Math.random() * 3),
             autoNotes: 'Automated test data',
-            autoTotalScore: autoTotalScore,
             teleBallHit: teleBallHit,
             isTeleopZoneSmall: teleSmall > 0,
             isTeleopZoneBig: teleBig > 0,
@@ -163,7 +161,6 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
             teleHumanPlayer: Math.random() > 0.5,
             teleFloor: Math.random() > 0.5,
             teleComments: 'Test comments',
-            teleTotalScore: teleTotalScore,
             aiAnalysis: 'Test analysis',
             recordType: 'MATCH_COMPLETE',
             targetSheetId: spreadsheetId,

@@ -16,7 +16,7 @@ const MATCHES = [1, 2, 3, 4, 5, 6];
 const POSITIONS = ['Red 1', 'Red 2', 'Blue 1', 'Blue 2'];
 
 const ALL_HEADERS = [
-  'Timestamp', 'שם הסקאוטר', 'מספר קבוצה', 'מספר מקצה', '.',  'isAutoZoneSmall', 'isAutoZoneBig', 
+  'Timestamp', '.',  'isAutoZoneSmall', 'isAutoZoneBig', 
   'isAutoLeave', 
   'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes',
   'teleBallHit', 'teleBallMiss',
@@ -58,6 +58,7 @@ function generateData(team: string, match: number, position: string) {
 
   const row: any = {
     sessionId: 'synthetic-' + Math.random().toString(36).substr(2, 9),
+    Timestamp: new Date().toLocaleString(),
     timestamp: new Date().toLocaleString(),
     sessionStartTime: new Date().toISOString(),
     sessionEndTime: new Date().toISOString(),

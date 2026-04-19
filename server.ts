@@ -41,6 +41,13 @@ async function startServer() {
       const response = await fetch(url, { redirect: 'follow' });
       const text = await response.text();
 
+      if (text.includes("Original sheet not found")) {
+        return res.status(404).json({ 
+          error: "Sheet not found",
+          message: `The sheet "${sheetName}" was not found in the spreadsheet.`
+        });
+      }
+
       if (response.ok) {
         if (text.includes("Der Bereich muss mindestens 1 Spalte enthalten") || 
             text.includes("The range must contain at least one column")) {
@@ -70,12 +77,13 @@ async function startServer() {
 
   // API Proxy for syncing data
   app.post("/api/sync", async (req, res) => {
-    const { targetSheetId, sheetName, recordType } = req.body;
-    console.log(`Proxy: SYNC START - Spreadsheet: ${targetSheetId}, Sheet: ${sheetName}`);
+    const { targetSheetId, sheetName, recordType, action } = req.body;
+    console.log(`Proxy: SYNC START - Spreadsheet: ${targetSheetId}, Sheet: ${sheetName}, Action: ${action || 'default'}`);
     
     try {
       // We send sheetName in BOTH the URL and the JSON body to be 100% sure Google sees it
-      const url = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${encodeURIComponent(sheetName || '')}`;
+      let url = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${encodeURIComponent(sheetName || '')}`;
+      if (action) url += `&action=${action}`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -552,7 +560,7 @@ async function startServer() {
           
           if (isNew) {
             if (timestamp > newestTimestamp) newestTimestamp = timestamp;
-            const team = String(game.teamScouted || game['מספר קבוצה'] || '').trim();
+            const team = String(game.teamScouted || '').trim();
             if (team) affectedTeams.add(team);
           }
           return isNew;

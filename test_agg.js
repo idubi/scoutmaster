@@ -32,19 +32,17 @@ async function run() {
     const recType = match.recordType || match['recordType'];
     if (recType && recType !== 'MATCH_COMPLETE') return;
     
-    const teamNumber = String(match.teamScouted || match['מספר קבוצה'] || '').trim();
+    const teamNumber = String(match.teamScouted || '').trim();
     if (!teamNumber) return;
 
-    const teleHit = Number(match.teleBallHit || match['טלאופ - כדור מנוקד'] || 0);
-    const autoHit = Number(match.autoBallHit || match['אוטונומי - כדור מנוקד'] || 0);
+    const teleHit = Number(match.teleBallHit || 0);
+    const autoHit = Number(match.autoBallHit || 0);
     const teleMiss = Number(match.teleBallMiss || 0);
-    const autoMiss = Number(match.autoBallMiss || match['אוטונומי - כדורים שהוחטאו'] || 0);
+    const autoMiss = Number(match.autoBallMiss || 0);
     
     let isFullParking = 0;
     if (match.teleFullParking !== undefined) {
       isFullParking = match.teleFullParking ? 1 : 0;
-    } else if (match['טלאופ - חניה'] === 'חניה מלאה') {
-      isFullParking = 1;
     }
 
     const gateFoul = Number(match.teleGateFoul || 0);

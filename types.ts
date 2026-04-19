@@ -112,18 +112,8 @@ export interface SpreadsheetRow {
 
   // Hebrew Mapped Fields for demo-table
   'Timestamp'?: string;
-  'שם הסקאוטר'?: string;
-  'מספר קבוצה'?: string;
-  'מספר מקצה'?: string;
-  'צבע ברית'?: string;
   '.'?: string;
-  'אוטונומי - נסע מהמקום'?: string;
-  'אוטונומי - כדור מנוקד'?: number;
-  'אוטונומי - כדורים שהוחטאו'?: number;
-  'טלאופ - כדור מנוקד'?: number;
   'teleFullParking'?: boolean;
-  'איסוף '?: string;
-  'הערות (אסטרטגיית הגנה, עשה הרבה פאולים, וכו)'?: string;
 }
 
 export interface TeamAggregatedData {
