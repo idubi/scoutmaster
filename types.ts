@@ -32,7 +32,8 @@ export interface AutoCycle {
 export interface AutoData {
   matchNumber: string;
   teamScouted: string;
-  zoneType: string; 
+  isZoneSmall: boolean;
+  isZoneBig: boolean;
   leave: boolean;
   cycles: AutoCycle[];
   openGate: boolean;
@@ -40,14 +41,13 @@ export interface AutoData {
   ballsSide: number; 
   ballsMissed: number; 
   freeText: string;
-  totalScore: number;
 }
 
 export interface TeleOpData {
   intake: number;
-  long: number;
-  short: number;
-  gateOpen: number;
+  isSmallTriangle: boolean;
+  isBigTriangle: boolean;
+  isGateActive: boolean;
   gateOverflow: number;
   fieldAwareness: boolean;
   lateTranslation: boolean;
@@ -65,7 +65,6 @@ export interface TeleOpData {
   humanPlayer: boolean;
   floor: boolean;
   comments: string;
-  totalScore: number;
 }
 
 export interface SpreadsheetRow {

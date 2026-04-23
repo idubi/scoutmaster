@@ -79,7 +79,6 @@ const SummaryView: React.FC<SummaryViewProps> = (props) => {
             {isRTL ? (props.user.allianceColor === 'Red' ? 'אדום' : 'כחול') : props.user.allianceColor}
           </span>
           <span className={`bg-black/10 px-3 py-1 rounded-full font-bold border border-white/20 uppercase ${isRTL ? 'text-[11px]' : 'text-[10px]'}`}>{t.team}: {props.auto.teamScouted}</span>
-          <span className={`bg-emerald-500 px-3 py-1 rounded-full font-black border border-emerald-400 uppercase ${isRTL ? 'text-[11px]' : 'text-[10px]'}`}>{t.total}: {props.auto.totalScore + props.teleop.totalScore} {t.score}</span>
         </div>
       </div>
 
@@ -117,7 +116,6 @@ const SummaryView: React.FC<SummaryViewProps> = (props) => {
               <h3 className={`text-indigo-600 font-black uppercase tracking-widest flex items-center gap-2 ${isRTL ? 'text-[12px]' : 'text-[10px]'}`}>
                 <Activity size={14} /> {t.auto}
               </h3>
-              <span className="text-slate-900 font-black text-sm">{props.auto.totalScore} {t.score}</span>
             </div>
             <ul className={`space-y-2 text-slate-600 font-medium ${isRTL ? 'text-sm' : 'text-xs'}`}>
               <li className="flex justify-between border-b border-slate-200 pb-2">
@@ -151,7 +149,6 @@ const SummaryView: React.FC<SummaryViewProps> = (props) => {
               <h3 className={`text-violet-600 font-black uppercase tracking-widest flex items-center gap-2 ${isRTL ? 'text-[12px]' : 'text-[10px]'}`}>
                 <Gamepad2 size={14} /> {t.tele}
               </h3>
-              <span className="text-slate-900 font-black text-sm">{props.teleop.totalScore} {t.score}</span>
             </div>
             <ul className={`space-y-2 text-slate-600 font-medium ${isRTL ? 'text-sm' : 'text-xs'}`}>
               <li className="flex justify-between border-b border-slate-200 pb-2">

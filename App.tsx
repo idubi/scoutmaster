@@ -198,8 +198,8 @@ const App: React.FC = () => {
 
     if (currentAuto) {
       Object.assign(row, {
-        isAutoZoneSmall: currentAuto.zoneType === 'small',
-        isAutoZoneBig: currentAuto.zoneType === 'big',
+        isAutoZoneSmall: currentAuto.isZoneSmall,
+        isAutoZoneBig: currentAuto.isZoneBig,
         isAutoLeave: currentAuto.leave,
         autoOpenGate: currentAuto.openGate,
         autoIntakeUsed: currentAuto.intake,
@@ -212,8 +212,8 @@ const App: React.FC = () => {
     if (currentTeleop) {
       Object.assign(row, {
         teleBallHit: currentTeleop.intake,
-        isTeleopZoneSmall: currentTeleop.long > 0,
-        isTeleopZoneBig: currentTeleop.short > 0,
+        isTeleopZoneSmall: currentTeleop.isSmallTriangle,
+        isTeleopZoneBig: currentTeleop.isBigTriangle,
         teleBallMiss: currentTeleop.gateOverflow,
         teleFieldAwareness: currentTeleop.fieldAwareness,
         teleLateTranslation: currentTeleop.lateTranslation,
@@ -423,14 +423,14 @@ const App: React.FC = () => {
           initialData={autoData || {
             matchNumber: user?.matchNumber || '1',
             teamScouted: user?.teamScouted || '',
-            zoneType: '', leave: false,
+            isZoneSmall: false, isZoneBig: false, leave: false,
             cycles: [
               { id: 'Preload', collected: true, count: 0, missCount: 0 },
               { id: '1', collected: false, count: 0, missCount: 0 },
               { id: '2', collected: false, count: 0, missCount: 0 },
               { id: '3', collected: false, count: 0, missCount: 0 },
             ],
-            openGate: false, intake: false, ballsSide: 0, ballsMissed: 0, freeText: '', totalScore: 0
+            openGate: false, intake: false, ballsSide: 0, ballsMissed: 0, freeText: ''
           }} 
         />;
       case ScoutingPhase.TELEOP: 

@@ -80,7 +80,6 @@ const TeleOpForm: React.FC<TeleOpFormProps> = (props) => {
             <h1 className="text-base sm:text-xl font-black flex items-center gap-2 uppercase tracking-tighter text-left">
               <Gamepad2 size={18}/> {t.title}
             </h1>
-            <span className="text-[10px] sm:text-sm font-black text-left">{t.score}: {props.totalScore}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">

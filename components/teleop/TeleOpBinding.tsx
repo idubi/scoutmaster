@@ -17,9 +17,9 @@ const TeleOpBinding: React.FC<TeleOpBindingProps> = ({ onNext, onBack, onLogout,
   });
 
   const [checkboxes, setCheckboxes] = useState({
-    smallTriangle: initialData ? initialData.long > 0 : false,
-    bigTriangle: initialData ? initialData.short > 0 : false,
-    gateActive: initialData ? initialData.gateOpen > 0 : false,
+    smallTriangle: initialData?.isSmallTriangle ?? false,
+    bigTriangle: initialData?.isBigTriangle ?? false,
+    gateActive: initialData?.isGateActive ?? false,
     fieldAwareness: initialData?.fieldAwareness ?? false,
     lateTranslation: initialData?.lateTranslation ?? false,
     fastRebound: initialData?.fastRebound ?? false,
@@ -37,7 +37,6 @@ const TeleOpBinding: React.FC<TeleOpBindingProps> = ({ onNext, onBack, onLogout,
   });
 
   const [comments, setComments] = useState(initialData?.comments ?? '');
-  const [totalScore, setTotalScore] = useState(0);
 
   const handleCheck = (key: string) => {
     setCheckboxes(prev => {
@@ -64,26 +63,12 @@ const TeleOpBinding: React.FC<TeleOpBindingProps> = ({ onNext, onBack, onLogout,
     });
   };
 
-  useEffect(() => {
-    let total = 0;
-    // Base Scoring
-    if (checkboxes.smallTriangle) total += 3;
-    if (checkboxes.bigTriangle) total += 2;
-    if (checkboxes.gateActive) total += 1;
-    
-    // Counter-based Scoring
-    total += state.intakeCount;
-    // Misses (overflowCount) count as 0 points
-    
-    setTotalScore(total);
-  }, [checkboxes, state]);
-
   const handleNext = () => {
     const finalData: TeleOpData = {
       intake: state.intakeCount,
-      long: checkboxes.smallTriangle ? 1 : 0,
-      short: checkboxes.bigTriangle ? 1 : 0,
-      gateOpen: checkboxes.gateActive ? 1 : 0,
+      isSmallTriangle: checkboxes.smallTriangle,
+      isBigTriangle: checkboxes.bigTriangle,
+      isGateActive: checkboxes.gateActive,
       gateOverflow: state.overflowCount,
       fieldAwareness: checkboxes.fieldAwareness,
       lateTranslation: checkboxes.lateTranslation,
@@ -100,8 +85,7 @@ const TeleOpBinding: React.FC<TeleOpBindingProps> = ({ onNext, onBack, onLogout,
       intakeFoul: checkboxes.intakeFoul,
       humanPlayer: checkboxes.humanPlayer,
       floor: checkboxes.floor,
-      comments,
-      totalScore
+      comments
     };
     onNext(finalData);
   };
@@ -119,7 +103,6 @@ const TeleOpBinding: React.FC<TeleOpBindingProps> = ({ onNext, onBack, onLogout,
       state={state} 
       checkboxes={checkboxes} 
       comments={comments} 
-      totalScore={totalScore}
       onCheck={handleCheck}
       onToggleState={() => {}} 
       onCounterChange={handleCounterChange}

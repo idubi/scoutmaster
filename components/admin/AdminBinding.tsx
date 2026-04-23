@@ -100,7 +100,7 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
     const ALL_HEADERS = [
       'sessionId', 'timestamp', 'sessionStartTime', 'sessionEndTime', 'name', 
       'matchNumber', 'teamScouted', 'role',  
-      'autoMobility_Leave', 
+      'isAutoLeave', 
       'autoOpenGate', 'autoIntakeUsed', 'autoBallHit', 'autoBallMiss', 'autoNotes',
       'teleBallHit', 'teleBallMiss',
       'isTeleopZoneSmall', 'isTeleopZoneBig',
@@ -117,13 +117,8 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
         for (let i = 1; i <= 6; i++) {
           const autoBallHit = Math.floor(Math.random() * 5);
           const autoMobility = Math.random() > 0.3;
-          const autoTotalScore = autoBallHit + (autoMobility ? 2 : 0);
           
           const teleBallHit = Math.floor(Math.random() * 15);
-          const teleSmall = Math.random() > 0.5 ? 1 : 0;
-          const teleBig = Math.random() > 0.5 ? 1 : 0;
-          const teleGate = Math.random() > 0.7 ? 1 : 0;
-          const teleTotalScore = teleBallHit + (teleSmall * 3) + (teleBig * 2) + (teleGate * 1);
 
           const row = {
             sessionId: `seed-${Math.random().toString(36).substr(2, 9)}`,
@@ -134,6 +129,7 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
             matchNumber: i.toString(),
             teamScouted: team,
             role: 'scouter',
+            isAutoLeave: autoMobility,
             isAutoZoneSmall: Math.random() > 0.5,
             isAutoZoneBig: Math.random() > 0.5,
             autoOpenGate: Math.random() > 0.8,
@@ -142,8 +138,8 @@ const AdminBinding: React.FC<AdminBindingProps> = ({
             autoBallMiss: Math.floor(Math.random() * 3),
             autoNotes: 'Automated test data',
             teleBallHit: teleBallHit,
-            isTeleopZoneSmall: teleSmall > 0,
-            isTeleopZoneBig: teleBig > 0,
+            isTeleopZoneSmall: Math.random() > 0.5,
+            isTeleopZoneBig: Math.random() > 0.5,
             teleBallMiss: Math.floor(Math.random() * 5),
             teleFieldAwareness: Math.random() > 0.2,
             teleLateTranslation: Math.random() > 0.8,

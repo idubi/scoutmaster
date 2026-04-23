@@ -141,16 +141,30 @@ const AdminView: React.FC<AdminViewProps> = ({
   }, []);
 
   const uniqueTeams = useMemo(() => {
-    const teams = history
+    const historyTeams = history
       .map(row => row.teamScouted?.toString().trim())
       .filter((team): team is string => !!team && team !== '');
-    return Array.from(new Set(teams)).sort((a: string, b: string) => {
+    
+    const gradesTeams = (teamsGrades || [])
+      .map(team => team.TeamNumber?.toString().trim())
+      .filter((team): team is string => !!team && team !== '');
+
+    const combinedTeams = Array.from(new Set([...historyTeams, ...gradesTeams]));
+    
+    return combinedTeams.sort((a: string, b: string) => {
       const numA = parseInt(a);
       const numB = parseInt(b);
       if (isNaN(numA) || isNaN(numB)) return a.localeCompare(b);
       return numA - numB;
     });
-  }, [history]);
+  }, [history, teamsGrades]);
+
+  // Auto-select all teams for comparison by default when uniqueTeams is populated
+  useEffect(() => {
+    if (uniqueTeams.length > 0 && compareSelectedTeams.length === 0) {
+      setCompareSelectedTeams(uniqueTeams);
+    }
+  }, [uniqueTeams.length]); // Use length as dependency to avoid unnecessary triggers
 
   const uniqueMatches = useMemo(() => {
     try {
@@ -253,19 +267,19 @@ const AdminView: React.FC<AdminViewProps> = ({
       stats.teleHit += (row.teleBallHit || 0);
       stats.teleMiss += (row.teleBallMiss || 0);
       
-      if (row.teleFloor) stats.teleFloor++;
-      if (row.teleHumanPlayer) stats.teleHuman++;
-      if (row.autoIntakeUsed) stats.autoIntake++;
+      if (row.teleFloor === true) stats.teleFloor++;
+      if (row.teleHumanPlayer === true) stats.teleHuman++;
+      if (row.autoIntakeUsed === true) stats.autoIntake++;
       
-      if (row.isAutoZoneBig) stats.autoBig++;
-      if (row.isAutoZoneSmall) stats.autoSmall++;
-      if (row.isTeleopZoneBig) stats.teleBig++;
-      if (row.isTeleopZoneSmall) stats.teleSmall++;
-      if (row.autoMobility_Leave) stats.autoLeave++;
+      if (row.isAutoZoneBig === true) stats.autoBig++;
+      if (row.isAutoZoneSmall === true) stats.autoSmall++;
+      if (row.isTeleopZoneBig === true) stats.teleBig++;
+      if (row.isTeleopZoneSmall === true) stats.teleSmall++;
+      if (row.isAutoLeave === true) stats.autoLeave++;
       
-      if (row.teleIntakeFoul) stats.foulIntake++;
-      if (row.teleGateFoul) stats.foulGate++;
-      if (row.teleParkingFoul) stats.foulPark++;
+      if (row.teleIntakeFoul === true) stats.foulIntake++;
+      if (row.teleGateFoul === true) stats.foulGate++;
+      if (row.teleParkingFoul === true) stats.foulPark++;
       stats.foulTotal += (row.teleFoulCount || 0);
     });
 
@@ -321,8 +335,8 @@ const AdminView: React.FC<AdminViewProps> = ({
         return isMatchComplete && teamScoutedMatch;
       })
       .sort((a, b) => {
-        const matchA = parseInt(a.matchNumber || a.gameNumber || '0');
-        const matchB = parseInt(b.matchNumber || b.gameNumber || '0');
+        const matchA = parseInt(a.matchNumber || '0');
+        const matchB = parseInt(b.matchNumber || '0');
         return matchA - matchB;
       })
       .map((row, index) => {
@@ -334,17 +348,14 @@ const AdminView: React.FC<AdminViewProps> = ({
         const miss = autoMiss + teleMiss;
         const totalBalls = hit + miss;
         return {
-          game: row.matchNumber || row.gameNumber || `G${index + 1}`,
-          auto: row.autoTotalScore || 0,
-          tele: row.teleTotalScore || 0,
+          game: row.matchNumber || `G${index + 1}`,
           hit: hit,
           miss: miss,
           ratio: totalBalls > 0 ? parseFloat(((hit / totalBalls) * 100).toFixed(1)) : 0,
           fouls: row.teleFoulCount || 0,
-          gateFoul: row.teleGateFoul ? 1 : 0,
-          parkFoul: row.teleParkingFoul ? 1 : 0,
-          intakeFoul: row.teleIntakeFoul ? 1 : 0,
-          total: (row.autoTotalScore || 0) + (row.teleTotalScore || 0),
+          gateFoul: row.teleGateFoul === true ? 1 : 0,
+          parkFoul: row.teleParkingFoul === true ? 1 : 0,
+          intakeFoul: row.teleIntakeFoul === true ? 1 : 0,
           autoNotes: row.autoNotes || '',
           teleComments: row.teleComments || '',
           raw: row
@@ -360,9 +371,8 @@ const AdminView: React.FC<AdminViewProps> = ({
       fouls: acc.fouls + curr.fouls,
       gateFoul: acc.gateFoul + curr.gateFoul,
       parkFoul: acc.parkFoul + curr.parkFoul,
-      intakeFoul: acc.intakeFoul + curr.intakeFoul,
-      total: acc.total + curr.total
-    }), { hit: 0, miss: 0, fouls: 0, gateFoul: 0, parkFoul: 0, intakeFoul: 0, total: 0 });
+      intakeFoul: acc.intakeFoul + curr.intakeFoul
+    }), { hit: 0, miss: 0, fouls: 0, gateFoul: 0, parkFoul: 0, intakeFoul: 0 });
 
     const totalBalls = totals.hit + totals.miss;
     return {
@@ -382,7 +392,7 @@ const AdminView: React.FC<AdminViewProps> = ({
       const team = row.teamScouted?.toString();
       if (!team || !compareSelectedTeams.includes(team)) return;
       
-      const matchNum = row.matchNumber || row.gameNumber || '0';
+      const matchNum = row.matchNumber || '0';
       if (!matchMap[matchNum]) {
         matchMap[matchNum] = { match: matchNum };
       }
@@ -414,9 +424,9 @@ const AdminView: React.FC<AdminViewProps> = ({
         value += total > 0 ? (hits / total) * 100 : 0;
       }
 
-      if (selectedMetrics.includes('gate_foul')) value += (row.teleGateFoul ? 1 : 0);
-      if (selectedMetrics.includes('intake_foul')) value += (row.teleIntakeFoul ? 1 : 0);
-      if (selectedMetrics.includes('leave')) value += (row.autoMobility_Leave ? 1 : 0);
+      if (selectedMetrics.includes('gate_foul')) value += (row.teleGateFoul === true ? 1 : 0);
+      if (selectedMetrics.includes('intake_foul')) value += (row.teleIntakeFoul === true ? 1 : 0);
+      if (selectedMetrics.includes('leave')) value += (row.isAutoLeave === true ? 1 : 0);
       
       matchMap[matchNum][team] = parseFloat(value.toFixed(2));
     });
@@ -463,9 +473,12 @@ const AdminView: React.FC<AdminViewProps> = ({
   }, [teamsGrades]);
 
   const filteredRankedTeams = useMemo(() => {
-    if (compareSelectedTeams.length === 0) return [];
+    if (compareSelectedTeams.length === 0) return rankedTeams;
     return rankedTeams
-      .filter(team => compareSelectedTeams.includes(team.TeamNumber))
+      .filter(team => {
+        const teamNum = team.TeamNumber?.toString().trim();
+        return compareSelectedTeams.includes(teamNum || '');
+      })
       .sort((a, b) => a.rank - b.rank);
   }, [rankedTeams, compareSelectedTeams]);
 
@@ -975,10 +988,10 @@ const AdminView: React.FC<AdminViewProps> = ({
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
                                 {raw.isAutoZoneBig ? t.bigTriangle : raw.isAutoZoneSmall ? t.smallTriangle : '-'}
                               </td>
-                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoIntakeUsed ? (isRTL ? 'כן' : 'TRUE') : (isRTL ? 'לא' : 'FALSE')}</td>
+                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoIntakeUsed === true ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallHit}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallMiss}</td>
-                              <td className="py-4 px-6 font-bold text-slate-700">{raw.autoMobility_Leave ? 'leave' : (isRTL ? 'לא' : 'No')}</td>
+                              <td className="py-4 px-6 font-bold text-slate-700">{raw.isAutoLeave === true ? 'leave' : (isRTL ? 'לא' : 'No')}</td>
                             </tr>
                           );
                         })}
@@ -1135,8 +1148,8 @@ const AdminView: React.FC<AdminViewProps> = ({
                           </thead>
                           <tbody>
                             {filteredRankedTeams.map(team => {
-                              const avgAuto = (team.TOTAL_AUTONOMUS_HIT / team.GAMES_COUNT).toFixed(2);
-                              const avgTele = (team.TOTAL_TELEOP_HIT / team.GAMES_COUNT).toFixed(2);
+                              const avgAuto = team.GAMES_COUNT > 0 ? (team.TOTAL_AUTONOMUS_HIT / team.GAMES_COUNT).toFixed(2) : '0.00';
+                              const avgTele = team.GAMES_COUNT > 0 ? (team.TOTAL_TELEOP_HIT / team.GAMES_COUNT).toFixed(2) : '0.00';
                               return (
                                 <tr key={team.TeamNumber} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                                   <td className="py-4 px-6 font-black text-indigo-600 border-r border-slate-200">
@@ -1184,10 +1197,10 @@ const AdminView: React.FC<AdminViewProps> = ({
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
                                     {row.isAutoZoneBig ? t.bigTriangle : row.isAutoZoneSmall ? t.smallTriangle : '-'}
                                   </td>
-                                  <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoIntakeUsed ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
+                                  <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoIntakeUsed === true ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoBallHit}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoBallMiss}</td>
-                                  <td className="py-4 px-6 font-bold text-slate-700">{row.autoMobility_Leave ? 'leave' : (isRTL ? 'לא' : 'No')}</td>
+                                  <td className="py-4 px-6 font-bold text-slate-700">{row.isAutoLeave === true ? 'leave' : (isRTL ? 'לא' : 'No')}</td>
                                 </tr>
                               ))}
                           </tbody>
@@ -1362,7 +1375,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                                   {/* Data Rows */}
                                   {[
                                     { label: t.teamNumberLabel, field: 'teamScouted', type: 'value' },
-                                    { label: isRTL ? 'עזיבה באוטונומי %' : 'Leave %', field: 'autoMobility_Leave', type: 'percentage' },
+                                    { label: isRTL ? 'עזיבה באוטונומי %' : 'Leave %', field: 'isAutoLeave', type: 'percentage' },
                                     { label: isRTL ? 'יכולות אוטונומי' : 'Auto Hits', field: 'autoBallHit', type: 'average' },
                                     { label: isRTL ? 'סוג חניה' : 'Parking Type', field: 'teleParkingFoul', type: 'parking' },
                                     { label: isRTL ? 'טווח ירי' : 'Shooting Range', field: 'teleComments', type: 'shooting' }
@@ -1377,7 +1390,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                                         if (rowDef.type === 'value') {
                                           displayValue = row[rowDef.field as keyof SpreadsheetRow] || '-';
                                         } else if (rowDef.type === 'percentage') {
-                                          displayValue = row.autoMobility_Leave ? '100%' : '0%';
+                                          displayValue = row.isAutoLeave === true ? '100%' : '0%';
                                         } else if (rowDef.type === 'average') {
                                           displayValue = row[rowDef.field as keyof SpreadsheetRow] || '0';
                                         } else if (rowDef.type === 'parking') {
@@ -1412,7 +1425,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                                       .map((r, idx) => (
                                         <li key={`${r.teamScouted}-${idx}`} className="flex items-center gap-2">
                                           <div className="w-1 h-1 bg-red-500 rounded-full" />
-                                          <span>Team {r.teamScouted}: {(r.autoTotalScore || 0) + (r.teleTotalScore || 0)} pts</span>
+                                          <span>Team {r.teamScouted}</span>
                                         </li>
                                       ))}
                                   </ul>
@@ -1425,7 +1438,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                                       .map((r, idx) => (
                                         <li key={`${r.teamScouted}-${idx}`} className="flex items-center gap-2">
                                           <div className="w-1 h-1 bg-blue-500 rounded-full" />
-                                          <span>Team {r.teamScouted}: {(r.autoTotalScore || 0) + (r.teleTotalScore || 0)} pts</span>
+                                          <span>Team {r.teamScouted}</span>
                                         </li>
                                       ))}
                                   </ul>

@@ -14,15 +14,12 @@ interface AutoBindingProps {
 const AutoBinding: React.FC<AutoBindingProps> = ({ onNext, onBack, onLogout, initialData, language }) => {
   const [data, setData] = useState(initialData);
 
-  const totalCyclesScore = 0; // Cycles removed from UI
-
-  const totalScore = useMemo(() => {
-    // Scoring logic: Each ball hit counts as 1 point + Leave bonus (2 points)
-    return data.ballsSide + (data.leave ? 2 : 0);
-  }, [data.ballsSide, data.leave]);
-
-  const handleZoneToggle = (zoneType: string) => {
-    setData(prev => ({ ...prev, zoneType: prev.zoneType === zoneType ? '' : zoneType }));
+  const handleZoneToggle = (type: 'small' | 'big') => {
+    setData(prev => ({ 
+      ...prev, 
+      isZoneSmall: type === 'small' ? !prev.isZoneSmall : false,
+      isZoneBig: type === 'big' ? !prev.isZoneBig : false
+    }));
   };
 
   const handleLeaveToggle = () => {
@@ -41,15 +38,13 @@ const AutoBinding: React.FC<AutoBindingProps> = ({ onNext, onBack, onLogout, ini
   };
 
   const handleNext = () => {
-    onNext({ ...data, totalScore });
+    onNext({ ...data });
   };
 
   return (
     <AutoForm 
       {...data}
       language={language}
-      totalScore={totalScore}
-      totalCyclesScore={totalCyclesScore}
       onZoneToggle={handleZoneToggle}
       onLeaveToggle={handleLeaveToggle}
       onCycleUpdate={() => {}} // No cycles in UI

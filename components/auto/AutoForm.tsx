@@ -6,7 +6,8 @@ import { Check, Plus, Minus, ArrowRight, Cpu, ArrowLeft, X } from 'lucide-react'
 interface AutoFormProps {
   matchNumber: string;
   teamScouted: string;
-  zoneType: string;
+  isZoneSmall: boolean;
+  isZoneBig: boolean;
   leave: boolean;
   cycles: AutoCycle[];
   ballsSide: number;
@@ -14,8 +15,6 @@ interface AutoFormProps {
   openGate: boolean;
   intake: boolean;
   freeText: string;
-  totalScore: number;
-  totalCyclesScore: number;
   onZoneToggle: (t: string) => void;
   onLeaveToggle: () => void;
   onCycleUpdate: (id: string, d: number) => void;
@@ -65,7 +64,6 @@ const AutoForm: React.FC<AutoFormProps> = (props) => {
               <Cpu size={14} className="animate-pulse" />
               {t.title}
             </span>
-            <span className="text-sm font-black mt-0.5">{t.score}: {props.totalScore}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -90,12 +88,12 @@ const AutoForm: React.FC<AutoFormProps> = (props) => {
               {t.zoneType}
             </span>
             <div className="flex gap-1.5">
-              {[ {k: 'big', l: t.big}, {k: 'small', l: t.small}].map(item => (
+              {[ {k: 'big', l: t.big, checked: props.isZoneBig}, {k: 'small', l: t.small, checked: props.isZoneSmall}].map(item => (
                 <button
                   key={item.k}
                   onClick={() => props.onZoneToggle(item.k)}
                   className={`flex-1 py-2.5 rounded-xl font-black uppercase transition-all ${
-                    props.zoneType === item.k 
+                    item.checked 
                     ? 'bg-emerald-600 text-white shadow-lg' 
                     : 'bg-red-50 border-red-300 text-red-600'
                   } ${isRTL ? 'text-[14px]' : 'text-[9px]'}`}
