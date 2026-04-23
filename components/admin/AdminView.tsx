@@ -975,7 +975,7 @@ const AdminView: React.FC<AdminViewProps> = ({
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
                                 {raw.isAutoZoneBig ? t.bigTriangle : raw.isAutoZoneSmall ? t.smallTriangle : '-'}
                               </td>
-                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoIntakeUsed ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
+                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoIntakeUsed ? (isRTL ? 'כן' : 'TRUE') : (isRTL ? 'לא' : 'FALSE')}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallHit}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallMiss}</td>
                               <td className="py-4 px-6 font-bold text-slate-700">{raw.autoMobility_Leave ? 'leave' : (isRTL ? 'לא' : 'No')}</td>
