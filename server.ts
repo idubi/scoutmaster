@@ -187,7 +187,7 @@ async function startServer() {
     res.json({ status: "success", settings: systemSettings });
   });
 
-  async function updateTeamsGrades(targetSheetId: string, newMatchData?: any) {
+  async function updateTeamsGrades(targetSheetId: string, newMatchData?: any): Promise<boolean> {
     const TEAMS_GRADES_SHEET = 'TEAMS_GRADES';
     const RAW_DATA_SHEET = 'scoutsmaster_ongoing';
     const TEAMS_GRADES_HEADERS = [
@@ -203,8 +203,8 @@ async function startServer() {
       const consolidatedMap = new Map<string, TeamAggregatedData>();
 
       if (newMatchData) {
-        // --- INCREMENTAL UPDATE ---
-        // 1. Fetch current TEAMS_GRADES
+        // --- INCREMENTAL UPDATE (Single Record) ---
+        // 1. Fetch current TEAMS_GRADES to maintain context
         const fetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${TEAMS_GRADES_SHEET}`;
         const fetchResponse = await fetch(fetchUrl, { redirect: 'follow' });
         const fetchText = await fetchResponse.text();
@@ -314,21 +314,67 @@ async function startServer() {
           }
         }
       } else {
-        // --- FULL RECALCULATION (Manual) ---
-        const fetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${RAW_DATA_SHEET}`;
-        const fetchResponse = await fetch(fetchUrl, { redirect: 'follow' });
-        const fetchText = await fetchResponse.text();
+        // --- GRANULAR FULL RECALCULATION (Optimized) ---
+        console.log("[Recalculate] Executing Granular Full Recalculation...");
         
-        let rawData: any[] = [];
-        if (fetchResponse.ok && !fetchText.includes("not found")) {
+        // 1. Fetch current TEAMS_GRADES (Stored Data)
+        const gradesFetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${TEAMS_GRADES_SHEET}`;
+        const gradesFetchRes = await fetch(gradesFetchUrl, { redirect: 'follow' });
+        const gradesFetchText = await gradesFetchRes.text();
+        const existingGradesMap = new Map<string, TeamAggregatedData>();
+        
+        if (gradesFetchRes.ok && !gradesFetchText.includes("not found")) {
           try {
-            const parsed = JSON.parse(fetchText);
-            rawData = Array.isArray(parsed) ? parsed : [];
+            const parsedGrades = JSON.parse(gradesFetchText);
+            if (Array.isArray(parsedGrades)) {
+              parsedGrades.forEach((row: any) => {
+                if (row.TeamNumber) {
+                  existingGradesMap.set(String(row.TeamNumber), {
+                    TeamNumber: String(row.TeamNumber),
+                    GAMES_COUNT: Number(row.GAMES_COUNT || 0),
+                    TOTAL_TELEOP_HIT: Number(row.TOTAL_TELEOP_HIT || 0),
+                    TOTAL_AUTONOMUS_HIT: Number(row.TOTAL_AUTONOMUS_HIT || 0),
+                    TOTAL_TELEOP_MISS: Number(row.TOTAL_TELEOP_MISS || 0),
+                    TOTAL_AUTONOMUS_MISS: Number(row.TOTAL_AUTONOMUS_MISS || 0),
+                    TOTAL_IS_FULL_PARKING: Number(row.TOTAL_IS_FULL_PARKING || 0),
+                    TOTAL_AUTO_ZONE_SMALL: Number(row.TOTAL_AUTO_ZONE_SMALL || 0),
+                    TOTAL_AUTO_ZONE_BIG: Number(row.TOTAL_AUTO_ZONE_BIG || 0),
+                    TOTAL_TELEOP_ZONE_SMALL: Number(row.TOTAL_TELEOP_ZONE_SMALL || 0),
+                    TOTAL_TELEOP_ZONE_BIG: Number(row.TOTAL_TELEOP_ZONE_BIG || 0),
+                    TOTAL_AUTO_LEAVE: Number(row.TOTAL_AUTO_LEAVE || 0),
+                    TOTAL_FOULS: Number(row.TOTAL_FOULS || 0),
+                    TOTAL_GATE_FOULS: Number(row.TOTAL_GATE_FOULS || 0),
+                    TOTAL_PARKING_FOULS: Number(row.TOTAL_PARKING_FOULS || 0),
+                    TOTAL_INTAKE_FOULS: Number(row.TOTAL_INTAKE_FOULS || 0),
+                    GRADE: Number(row.GRADE || 0),
+                    RATIO: Number(row.RATIO || 0),
+                    RANK: Number(row.RANK || 0)
+                  });
+                }
+              });
+            }
           } catch (e) {
-            console.warn("Could not parse raw data for aggregation.");
+            console.warn("[Recalculate] Could not parse existing grades. Will treat all teams as dirty.");
           }
         }
 
+        // 2. Fetch Raw Data from scoutsmaster_ongoing
+        const rawFetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${RAW_DATA_SHEET}`;
+        const rawFetchRes = await fetch(rawFetchUrl, { redirect: 'follow' });
+        const rawFetchText = await rawFetchRes.text();
+        
+        let rawData: any[] = [];
+        if (rawFetchRes.ok && !rawFetchText.includes("not found")) {
+          try {
+            const parsed = JSON.parse(rawFetchText);
+            rawData = Array.isArray(parsed) ? parsed : [];
+          } catch (e) {
+            console.error("[Recalculate] Failed to parse raw data.");
+          }
+        }
+
+        // 3. Group raw records by team and count actual matches
+        const teamRecordsMap = new Map<string, any[]>();
         rawData.forEach(match => {
           const recType = match.recordType || match['recordType'];
           if (recType && recType !== 'MATCH_COMPLETE') return;
@@ -336,71 +382,86 @@ async function startServer() {
           const teamNumber = String(match.teamScouted || '').trim();
           if (!teamNumber) return;
 
-          const teleHit = Number(match.teleBallHit || 0);
-          const autoHit = Number(match.autoBallHit || 0);
-          const teleMiss = Number(match.teleBallMiss || 0);
-          const autoMiss = Number(match.autoBallMiss || 0);
-          
-          let isFullParking = 0;
-          if (match.teleFullParking !== undefined) {
-            isFullParking = match.teleFullParking ? 1 : 0;
+          if (!teamRecordsMap.has(teamNumber)) {
+            teamRecordsMap.set(teamNumber, []);
           }
+          teamRecordsMap.get(teamNumber)!.push(match);
+        });
 
-          const autoSmall = match.isAutoZoneSmall === true || match.isAutoZoneSmall === 'TRUE' ? 1 : 0;
-          const autoBig = match.isAutoZoneBig === true || match.isAutoZoneBig === 'TRUE' ? 1 : 0;
-          const teleSmall = match.isTeleopZoneSmall === true || match.isTeleopZoneSmall === 'TRUE' ? 1 : 0;
-          const teleBig = match.isTeleopZoneBig === true || match.isTeleopZoneBig === 'TRUE' ? 1 : 0;
-          const autoLeave = match.isAutoLeave === true || match.isAutoLeave === 'TRUE' ? 1 : 0;
+        // 4. Compare Actual vs Stored and identify "dirty" or new teams
+        let anyChanges = false;
+        teamRecordsMap.forEach((matches, teamNumber) => {
+          const actualCount = matches.length;
+          const stored = existingGradesMap.get(teamNumber);
+          const storedCount = stored ? stored.GAMES_COUNT : 0;
 
-          const gateFoul = Number(match.teleGateFoul || 0);
-          const parkingFoul = Number(match.teleParkingFoul || 0);
-          const intakeFoul = Number(match.teleIntakeFoul || 0);
-          let fouls = gateFoul + parkingFoul + intakeFoul;
-          if (fouls === 0 && match.teleFoulCount) {
-            fouls = Number(match.teleFoulCount);
-          }
-
-          if (consolidatedMap.has(teamNumber)) {
-            const existing = consolidatedMap.get(teamNumber)!;
-            existing.GAMES_COUNT += 1;
-            existing.TOTAL_TELEOP_HIT += teleHit;
-            existing.TOTAL_AUTONOMUS_HIT += autoHit;
-            existing.TOTAL_TELEOP_MISS += teleMiss;
-            existing.TOTAL_AUTONOMUS_MISS += autoMiss;
-            existing.TOTAL_IS_FULL_PARKING += isFullParking;
-            existing.TOTAL_AUTO_ZONE_SMALL += autoSmall;
-            existing.TOTAL_AUTO_ZONE_BIG += autoBig;
-            existing.TOTAL_TELEOP_ZONE_SMALL += teleSmall;
-            existing.TOTAL_TELEOP_ZONE_BIG += teleBig;
-            existing.TOTAL_AUTO_LEAVE += autoLeave;
-            existing.TOTAL_FOULS += fouls;
-            existing.TOTAL_GATE_FOULS += gateFoul;
-            existing.TOTAL_PARKING_FOULS += parkingFoul;
-            existing.TOTAL_INTAKE_FOULS += intakeFoul;
+          if (stored && actualCount === storedCount) {
+            // OPTIMIZATION: Use stored data
+            consolidatedMap.set(teamNumber, { ...stored });
           } else {
-            consolidatedMap.set(teamNumber, {
+            // ACTION: Mark as modified/new and re-aggregate
+            anyChanges = true;
+            console.log(`[Recalculate] Team ${teamNumber}: Detected ${actualCount} records (was ${storedCount}). Recalculating...`);
+            
+            const newAgg: TeamAggregatedData = {
               TeamNumber: teamNumber,
-              GAMES_COUNT: 1,
-              TOTAL_TELEOP_HIT: teleHit,
-              TOTAL_AUTONOMUS_HIT: autoHit,
-              TOTAL_TELEOP_MISS: teleMiss,
-              TOTAL_AUTONOMUS_MISS: autoMiss,
-              TOTAL_IS_FULL_PARKING: isFullParking,
-              TOTAL_AUTO_ZONE_SMALL: autoSmall,
-              TOTAL_AUTO_ZONE_BIG: autoBig,
-              TOTAL_TELEOP_ZONE_SMALL: teleSmall,
-              TOTAL_TELEOP_ZONE_BIG: teleBig,
-              TOTAL_AUTO_LEAVE: autoLeave,
-              TOTAL_FOULS: fouls,
-              TOTAL_GATE_FOULS: gateFoul,
-              TOTAL_PARKING_FOULS: parkingFoul,
-              TOTAL_INTAKE_FOULS: intakeFoul,
+              GAMES_COUNT: actualCount,
+              TOTAL_TELEOP_HIT: 0,
+              TOTAL_AUTONOMUS_HIT: 0,
+              TOTAL_TELEOP_MISS: 0,
+              TOTAL_AUTONOMUS_MISS: 0,
+              TOTAL_IS_FULL_PARKING: 0,
+              TOTAL_AUTO_ZONE_SMALL: 0,
+              TOTAL_AUTO_ZONE_BIG: 0,
+              TOTAL_TELEOP_ZONE_SMALL: 0,
+              TOTAL_TELEOP_ZONE_BIG: 0,
+              TOTAL_AUTO_LEAVE: 0,
+              TOTAL_FOULS: 0,
+              TOTAL_GATE_FOULS: 0,
+              TOTAL_PARKING_FOULS: 0,
+              TOTAL_INTAKE_FOULS: 0,
               GRADE: 0,
               RATIO: 0,
               RANK: 0
+            };
+
+            matches.forEach(match => {
+              newAgg.TOTAL_TELEOP_HIT += Number(match.teleBallHit || 0);
+              newAgg.TOTAL_AUTONOMUS_HIT += Number(match.autoBallHit || 0);
+              newAgg.TOTAL_TELEOP_MISS += Number(match.teleBallMiss || 0);
+              newAgg.TOTAL_AUTONOMUS_MISS += Number(match.autoBallMiss || 0);
+              
+              if (match.teleFullParking === true || match.teleFullParking === 'TRUE') {
+                newAgg.TOTAL_IS_FULL_PARKING += 1;
+              }
+
+              newAgg.TOTAL_AUTO_ZONE_SMALL += (match.isAutoZoneSmall === true || match.isAutoZoneSmall === 'TRUE' ? 1 : 0);
+              newAgg.TOTAL_AUTO_ZONE_BIG += (match.isAutoZoneBig === true || match.isAutoZoneBig === 'TRUE' ? 1 : 0);
+              newAgg.TOTAL_TELEOP_ZONE_SMALL += (match.isTeleopZoneSmall === true || match.isTeleopZoneSmall === 'TRUE' ? 1 : 0);
+              newAgg.TOTAL_TELEOP_ZONE_BIG += (match.isTeleopZoneBig === true || match.isTeleopZoneBig === 'TRUE' ? 1 : 0);
+              newAgg.TOTAL_AUTO_LEAVE += (match.isAutoLeave === true || match.isAutoLeave === 'TRUE' ? 1 : 0);
+
+              const gF = Number(match.teleGateFoul || 0);
+              const pF = Number(match.teleParkingFoul || 0);
+              const iF = Number(match.teleIntakeFoul || 0);
+              let fCount = gF + pF + iF;
+              if (fCount === 0 && match.teleFoulCount) fCount = Number(match.teleFoulCount);
+
+              newAgg.TOTAL_FOULS += fCount;
+              newAgg.TOTAL_GATE_FOULS += gF;
+              newAgg.TOTAL_PARKING_FOULS += pF;
+              newAgg.TOTAL_INTAKE_FOULS += iF;
             });
+
+            consolidatedMap.set(teamNumber, newAgg);
           }
         });
+
+        // 5. Short-circuit if no changes detected
+        if (!anyChanges) {
+          console.log("[Recalculate] Granular Check Passed: No teams require updates. Skipping sheet rewrite.");
+          return false;
+        }
       }
 
       // 3. Calculate Grades and Ratios for all teams
@@ -464,6 +525,7 @@ async function startServer() {
           console.log(`[Recalculate] Successfully appended team ${team.TeamNumber}.`);
         }
       }
+      return true;
     } catch (error) {
       console.error("Error in updateTeamsGrades:", error);
       throw error;
@@ -538,44 +600,11 @@ async function startServer() {
       console.log(`[Batch Job] Starting scheduled execution for ${systemSettings.targetSheetId}...`);
       
       try {
-        // Step 1: Fetch Raw Data and check for new games
-        const RAW_DATA_SHEET = 'scoutsmaster_ongoing';
-        const fetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${RAW_DATA_SHEET}`;
-        const fetchResponse = await fetch(fetchUrl, { redirect: 'follow' });
-        const fetchText = await fetchResponse.text();
+        const didUpdate = await updateTeamsGrades(systemSettings.targetSheetId);
         
-        let rawData: any[] = [];
-        if (fetchResponse.ok && !fetchText.includes("not found")) {
-          rawData = JSON.parse(fetchText);
-        }
-
-        // Filter and collect affected teams
-        const lastConsolidationDate = systemSettings.lastConsolidationTime ? new Date(systemSettings.lastConsolidationTime) : new Date(0);
-        let newestTimestamp = lastConsolidationDate;
-        
-        const affectedTeams = new Set<string>();
-        const validGames = rawData.filter(game => {
-          const timestamp = new Date(game.Timestamp || game.timestamp);
-          const isNew = timestamp > lastConsolidationDate;
-          
-          if (isNew) {
-            if (timestamp > newestTimestamp) newestTimestamp = timestamp;
-            const team = String(game.teamScouted || '').trim();
-            if (team) affectedTeams.add(team);
-          }
-          return isNew;
-        });
-
-        if (affectedTeams.size > 0) {
-          console.log(`[Batch Job] Found ${validGames.length} new games affecting ${affectedTeams.size} teams.`);
-          
-          // Step 2: Recalculate & Update
-          // We trigger a full consolidation here because it ensures ranks/aggregates are always correct
-          // Given the sheet architecture, a full rewrite is the most reliable way to maintain data integrity
-          await updateTeamsGrades(systemSettings.targetSheetId);
-          
-          // Step 3: Reset the Clock and update settings
-          systemSettings.lastConsolidationTime = newestTimestamp.toISOString();
+        if (didUpdate) {
+          // Update the freshness marker
+          systemSettings.lastConsolidationTime = new Date().toISOString();
           
           // Persist the new timestamp to SYSTEM_SETTINGS sheet
           const SETTINGS_SHEET = 'SYSTEM_SETTINGS';
@@ -609,7 +638,7 @@ async function startServer() {
 
           console.log(`[Batch Job] Successfully processed batch. Freshness marker: ${systemSettings.lastConsolidationTime}`);
         } else {
-          console.log(`[Batch Job] No new games since ${lastConsolidationDate.toLocaleString()}. Skipping.`);
+          console.log(`[Batch Job] No changes detected in match counts. Skipping rewrite.`);
         }
         
         lastRunTime = Date.now();
