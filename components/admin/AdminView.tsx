@@ -973,7 +973,6 @@ const AdminView: React.FC<AdminViewProps> = ({
                         <tr className="bg-rose-900 text-white">
                           <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.match}</th>
                           <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.startPos}</th>
-                          <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.drive}</th>
                           <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.scored}</th>
                           <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.missed}</th>
                           <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start">{t.leave}</th>
@@ -988,7 +987,6 @@ const AdminView: React.FC<AdminViewProps> = ({
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
                                 {raw.isAutoZoneBig ? t.bigTriangle : raw.isAutoZoneSmall ? t.smallTriangle : '-'}
                               </td>
-                              <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoIntakeUsed === true ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallHit}</td>
                               <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{raw.autoBallMiss}</td>
                               <td className="py-4 px-6 font-bold text-slate-700">{raw.isAutoLeave === true ? 'leave' : (isRTL ? 'לא' : 'No')}</td>
@@ -1177,7 +1175,6 @@ const AdminView: React.FC<AdminViewProps> = ({
                             <tr className="bg-rose-900 text-white">
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.match}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.startPos}</th>
-                              <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.drive}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.scored}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start border-r border-rose-800">{t.missed}</th>
                               <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-start">{t.leave}</th>
@@ -1197,7 +1194,6 @@ const AdminView: React.FC<AdminViewProps> = ({
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">
                                     {row.isAutoZoneBig ? t.bigTriangle : row.isAutoZoneSmall ? t.smallTriangle : '-'}
                                   </td>
-                                  <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoIntakeUsed === true ? (isRTL ? 'כן' : 'Yes') : (isRTL ? 'לא' : 'No')}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoBallHit}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700 border-r border-slate-200">{row.autoBallMiss}</td>
                                   <td className="py-4 px-6 font-bold text-slate-700">{row.isAutoLeave === true ? 'leave' : (isRTL ? 'לא' : 'No')}</td>
