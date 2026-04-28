@@ -73,7 +73,7 @@ const App: React.FC = () => {
   const [isNavExpanded, setIsNavExpanded] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [lastConsolidationTime, setLastConsolidationTime] = useState<string | null>(null);
