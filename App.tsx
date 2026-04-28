@@ -14,7 +14,9 @@ import {
   Cpu, 
   BarChart3,
   ArrowLeft,
-  X
+  X,
+  RefreshCw,
+  Table as TableIcon
 } from 'lucide-react';
 import {ENV}  from "./constants";
 
@@ -71,7 +73,168 @@ const App: React.FC = () => {
   const [isNavExpanded, setIsNavExpanded] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [lastConsolidationTime, setLastConsolidationTime] = useState<string | null>(null);
+  const [teamsGrades, setTeamsGrades] = useState<any[]>([]);
+  const [isLoadingGrades, setIsLoadingGrades] = useState(false);
+  const [settings, setSettings] = useState({
+    isAutoCalcActive: false,
+    calcIntervalSeconds: 80
+  });
+
+  const fetchSettings = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
+        setSettings({
+          isAutoCalcActive: data.isAutoCalcActive,
+          calcIntervalSeconds: Number(data.calcIntervalSeconds) || 80
+        });
+        if (data.lastConsolidationTime) {
+          setLastConsolidationTime(new Date(data.lastConsolidationTime).toLocaleString());
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  }, []);
+
+  const handleUpdateSettings = async (newSettings: { isAutoCalcActive?: boolean, calcIntervalSeconds?: number }) => {
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...updated, targetSheetId: SPREADSHEET_ID })
+      });
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      fetchSettings();
+    }
+  };
+
+  const fetchTeamsGrades = React.useCallback(async () => {
+    setIsLoadingGrades(true);
+    try {
+      const response = await fetch(`/api/history?targetSheetId=${SPREADSHEET_ID}&sheetName=TEAMS_GRADES`);
+      if (response.ok) {
+        const data = await response.json();
+        setTeamsGrades(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Error fetching TEAMS_GRADES:', error);
+    } finally {
+      setIsLoadingGrades(false);
+    }
+  }, []);
+
+  const handleSeedData = async () => {
+    const confirmMsg = language === Language.HE 
+      ? 'פעולה זו תיצור 18 רשומות דוגמה (6 לכל קבוצה: 15811, 15928, 25041) ותסנכרן אותן לגוגל שיטס. להמשיך?'
+      : 'This will generate 18 test records (6 for each team: 15811, 15928, 25041) and sync them to Google Sheets. Continue?';
+    
+    if (!window.confirm(confirmMsg)) return;
+    
+    setIsSeeding(true);
+    const teams = ['15811', '15928', '25041'];
+    const scouterNames = ['TestScouter1', 'TestScouter2', 'TestScouter3'];
+
+    try {
+      for (const team of teams) {
+        for (let i = 1; i <= 6; i++) {
+          const row = {
+            sessionId: `seed-${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: new Date().toLocaleString(),
+            sessionStartTime: new Date().toISOString(),
+            sessionEndTime: new Date().toISOString(),
+            name: scouterNames[Math.floor(Math.random() * scouterNames.length)],
+            matchNumber: i.toString(),
+            teamScouted: team,
+            role: 'scouter',
+            isAutoLeave: Math.random() > 0.3,
+            isAutoZoneSmall: Math.random() > 0.5,
+            isAutoZoneBig: Math.random() > 0.5,
+            autoOpenGate: Math.random() > 0.8,
+            autoIntakeUsed: Math.random() > 0.5,
+            autoBallHit: Math.floor(Math.random() * 5),
+            autoBallMiss: Math.floor(Math.random() * 3),
+            autoNotes: 'Automated test data',
+            teleBallHit: Math.floor(Math.random() * 15),
+            isTeleopZoneSmall: Math.random() > 0.5,
+            isTeleopZoneBig: Math.random() > 0.5,
+            teleBallMiss: Math.floor(Math.random() * 5),
+            teleFieldAwareness: Math.random() > 0.2,
+            teleLateTranslation: Math.random() > 0.8,
+            teleOverallSuccess: true,
+            teleFastRebound: Math.random() > 0.5,
+            teleIsFrozen: Math.random() > 0.9,
+            teleConfused: Math.random() > 0.9,
+            teleStoppedScoring: Math.random() > 0.9,
+            teleGateFoul: Math.random() > 0.9,
+            teleParkingFoul: Math.random() > 0.9,
+            teleIntakeFoul: Math.random() > 0.9,
+            teleFoulCount: 0,
+            teleFullParking: Math.random() > 0.5,
+            teleHumanPlayer: Math.random() > 0.5,
+            teleFloor: Math.random() > 0.5,
+            teleComments: 'Test comments',
+            aiAnalysis: 'Test analysis',
+            recordType: 'MATCH_COMPLETE',
+            targetSheetId: SPREADSHEET_ID,
+            sheetName: SHEET_NAME,
+            headers: ALL_HEADERS
+          };
+
+          await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(row)
+          });
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+      const successMsg = language === Language.HE ? 'יצירת נתונים הושלמה!' : 'Seeding complete!';
+      alert(successMsg);
+      fetchHistory();
+      fetchTeamsGrades();
+    } catch (error) {
+      console.error('Seeding failed:', error);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const handleRecalculate = async () => {
+    setIsRecalculating(true);
+    try {
+      const response = await fetch('/api/recalculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetSheetId: SPREADSHEET_ID })
+      });
+      if (response.ok) {
+        setLastConsolidationTime(new Date().toLocaleString());
+        const successMsg = language === Language.HE ? 'החישוב הושלם! נתוני הקבוצות עודכנו.' : 'Recalculation complete! Team grades updated.';
+        alert(successMsg);
+        fetchTeamsGrades();
+      }
+    } catch (error) {
+      console.error('Recalculation error:', error);
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (phase === ScoutingPhase.MANAGEMENT || phase === ScoutingPhase.ADMIN) {
+      fetchSettings();
+      fetchTeamsGrades();
+    }
+  }, [phase, fetchSettings, fetchTeamsGrades]);
 
   const t = language === Language.HE ? AppTranslation_HE : AppTranslation_EN;
 
@@ -514,65 +677,125 @@ const App: React.FC = () => {
           spreadsheetId={SPREADSHEET_ID}
           onBack={() => setPhase(ScoutingPhase.AUTH)}
           onLogout={handleLogout}
+          isSeeding={isSeeding}
+          isRecalculating={isRecalculating}
+          lastConsolidationTime={lastConsolidationTime}
+          autoCalcActive={settings.isAutoCalcActive}
+          autoCalcSeconds={settings.calcIntervalSeconds}
+          onSeed={handleSeedData}
+          onRecalculate={handleRecalculate}
+          onUpdateSettings={handleUpdateSettings}
+          teamsGrades={teamsGrades}
+          isLoadingGrades={isLoadingGrades}
+          onFetchGrades={fetchTeamsGrades}
         />;
       case ScoutingPhase.MANAGEMENT:
+        const isRTL = language === Language.HE;
         return (
-          <div className="max-w-4xl mx-auto p-6 bg-white rounded-[2rem] shadow-2xl border border-slate-200 min-h-[400px] flex flex-col items-center justify-center relative overflow-hidden">
+          <div className="max-w-6xl mx-auto p-4 sm:p-8 bg-white rounded-[2rem] shadow-2xl border border-slate-200 min-h-[500px] flex flex-col relative overflow-hidden">
             <button 
               onClick={() => setPhase(ScoutingPhase.AUTH)}
-              className="absolute top-4 left-4 p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+              className="absolute top-6 left-6 p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 z-10"
             >
               <ArrowLeft size={24} />
             </button>
             <button 
               onClick={handleLogout}
-              className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+              className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 z-10"
             >
               <X size={24} />
             </button>
             
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-2">Management Panel</h2>
+            <div className="text-center mb-10 pt-4">
+              <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-2">MANAGEMENT PANEL</h2>
               <p className="text-slate-500 font-medium">System initialization and data management</p>
             </div>
-
-            <div className="grid grid-cols-1 gap-6 w-full max-w-sm">
-              <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 text-center">
-                <h3 className="text-lg font-bold text-slate-800 mb-4">Initialize Data Sheet</h3>
-                <p className="text-sm text-slate-500 mb-8 leading-relaxed">
-                  This will archive the current <b>{SHEET_NAME}</b> sheet by renaming it with a timestamp and create a fresh one for new data.
+ 
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full mt-4">
+              {/* Initialize Data Sheet Card */}
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 mb-4">
+                  <RefreshCw size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Initialize Data Sheet</h3>
+                <p className="text-xs text-slate-500 mb-6 leading-relaxed flex-grow">
+                  This will archive current <b>{SHEET_NAME}</b> and create a fresh database.
                 </p>
-                
                 <button 
                   onClick={handleInitSheet}
                   disabled={isInitializing}
-                  className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all transform active:scale-[0.98] flex items-center justify-center gap-3 ${
-                    initStatus === 'success' 
-                    ? 'bg-emerald-500 text-white' 
-                    : initStatus === 'error'
-                    ? 'bg-red-500 text-white'
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl shadow-indigo-600/20'
+                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${
+                    initStatus === 'success' ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg'
                   } ${isInitializing ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
                   {isInitializing ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Initializing...
-                    </>
-                  ) : initStatus === 'success' ? (
-                    'Success!'
-                  ) : initStatus === 'error' ? (
-                    'Error Occurred'
-                  ) : (
-                    'Clean Database'
-                  )}
+                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Initializing...</>
+                  ) : 'Clean Database'}
                 </button>
-                
-                {initStatus === 'success' && (
-                  <p className="mt-4 text-xs font-bold text-emerald-600 animate-in fade-in slide-in-from-top-2">
-                    Sheet archived successfully.
-                  </p>
+              </div>
+
+              {/* Seed Data Card */}
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mb-4">
+                  <TableIcon size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">{isRTL ? 'יצירת נתוני דוגמה' : 'Generate Sample Data'}</h3>
+                <p className="text-xs text-slate-500 mb-6 leading-relaxed flex-grow">
+                  {isRTL ? 'צור רשומות משחקים פיקטיביות למטרות בדיקה.' : 'Generate dummy match records for testing purposes.'}
+                </p>
+                <button
+                  onClick={handleSeedData}
+                  disabled={isSeeding}
+                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg ${isSeeding ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  {isSeeding ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Generating...</> : (isRTL ? 'צור נתוני דוגמה' : 'Generate Samples')}
+                </button>
+              </div>
+
+              {/* Auto Calculate Scores Card */}
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 mb-4">
+                  <RefreshCw size={24} className={settings.isAutoCalcActive ? 'animate-spin' : ''} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">{isRTL ? 'חישוב ציונים אוטומטי' : 'Auto Calculate Scores'}</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-[10px] font-black text-slate-400 uppercase">{isRTL ? 'כל' : 'Every'}</span>
+                  <input 
+                    type="number" 
+                    value={settings.calcIntervalSeconds}
+                    onChange={(e) => handleUpdateSettings({ calcIntervalSeconds: Number(e.target.value) || 0 })}
+                    className="w-14 bg-white border border-slate-200 rounded-lg px-2 py-1 text-center font-bold text-slate-900 text-xs"
+                  />
+                  <span className="text-[10px] font-black text-slate-400 uppercase">{isRTL ? 'שניות' : 'Sec'}</span>
+                </div>
+                <button
+                  onClick={() => handleUpdateSettings({ isAutoCalcActive: !settings.isAutoCalcActive })}
+                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${settings.isAutoCalcActive ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white animate-pulse'}`}
+                >
+                  <div className={`w-2 h-2 rounded-full ${settings.isAutoCalcActive ? 'bg-white' : 'bg-white'}`} />
+                  {settings.isAutoCalcActive ? (isRTL ? 'פעיל' : 'Active') : (isRTL ? 'לא פעיל' : 'Inactive')}
+                </button>
+              </div>
+
+              {/* Consolidate Data Card */}
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center">
+                <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 mb-4">
+                  <RefreshCw size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">{isRTL ? 'גיבוש נתונים' : 'Consolidate Data'}</h3>
+                <p className="text-xs text-slate-500 mb-1 leading-relaxed flex-grow">
+                  {isRTL ? 'חשב מחדש את כל ציוני הקבוצות מנתוני המשחקים הגולמיים.' : 'Recalculate all team grades from raw match data.'}
+                </p>
+                {lastConsolidationTime && (
+                  <span className="text-[9px] font-bold text-emerald-600 mb-4">{isRTL ? 'עודכן:' : 'Last updated:'} {lastConsolidationTime}</span>
                 )}
+                <button
+                  onClick={handleRecalculate}
+                  disabled={isRecalculating}
+                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg ${isRecalculating ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  {isRecalculating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Recalculating...</> : (isRTL ? 'רענן וגבש נתונים' : 'Consolidate Now')}
+                </button>
               </div>
             </div>
           </div>
