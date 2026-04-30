@@ -18,7 +18,7 @@ interface AdminBindingProps {
   autoCalcSeconds: number;
   onSeed: () => void;
   onRecalculate: () => Promise<void>;
-  onUpdateSettings: (settings: { isAutoCalcActive?: boolean, calcIntervalSeconds?: number }) => void;
+  onUpdateSettings: (settings: { isAutoCalcActive?: boolean }) => void;
   teamsGrades: any[];
   isLoadingGrades: boolean;
   onFetchGrades: () => void;

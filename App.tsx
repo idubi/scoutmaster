@@ -22,8 +22,7 @@ import {ENV}  from "./constants";
 
 
 const GOOGLE_SHEET_URL = ENV.GOOGLE_SHEET_URL;
-
-const SPREADSHEET_ID = '1AF7CpExwwMI2xDWMYxVkLq0UNls_VPEtwXUQkOMl9i8';
+const SPREADSHEET_ID = ENV.SPREADSHEET_ID;
 
 
 const SHEET_NAME = 'scoutsmaster_ongoing'; // Set your sheet name here
@@ -63,8 +62,8 @@ const App: React.FC = () => {
   const [teleopData, setTeleopData] = useState<TeleOpData | null>(null);
   const [history, setHistory] = useState<SpreadsheetRow[]>([]);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(false);
   const [initStatus, setInitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [initError, setInitError] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error' | 'success'>('idle');
   const [lastName, setLastName] = useState('');
   const [lastMatchNumber, setLastMatchNumber] = useState('1');
@@ -74,48 +73,21 @@ const App: React.FC = () => {
   const [resetKey, setResetKey] = useState(0);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [seedStatus, setSeedStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [seedError, setSeedError] = useState<string | null>(null);
+  const [recalcStatus, setRecalcStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [recalcError, setRecalcError] = useState<string | null>(null);
   const [lastConsolidationTime, setLastConsolidationTime] = useState<string | null>(null);
   const [teamsGrades, setTeamsGrades] = useState<any[]>([]);
   const [isLoadingGrades, setIsLoadingGrades] = useState(false);
   const [settings, setSettings] = useState({
     isAutoCalcActive: false,
-    calcIntervalSeconds: 80
+    calcIntervalSeconds: 80,
+    targetSheetId: SPREADSHEET_ID,
+    lastConsolidationTime: null as string | null,
+    autoCalcStatus: 'idle' as 'idle' | 'running' | 'error',
+    consecutiveFailures: 0
   });
-
-  const fetchSettings = React.useCallback(async () => {
-    try {
-      const response = await fetch('/api/settings');
-      if (response.ok) {
-        const data = await response.json();
-        setSettings({
-          isAutoCalcActive: data.isAutoCalcActive,
-          calcIntervalSeconds: Number(data.calcIntervalSeconds) || 80
-        });
-        if (data.lastConsolidationTime) {
-          setLastConsolidationTime(new Date(data.lastConsolidationTime).toLocaleString());
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching settings:', error);
-    }
-  }, []);
-
-  const handleUpdateSettings = async (newSettings: { isAutoCalcActive?: boolean, calcIntervalSeconds?: number }) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...updated, targetSheetId: SPREADSHEET_ID })
-      });
-    } catch (error) {
-      console.error('Error updating settings:', error);
-      fetchSettings();
-    }
-  };
 
   const fetchTeamsGrades = React.useCallback(async () => {
     setIsLoadingGrades(true);
@@ -132,6 +104,59 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const fetchSettings = React.useCallback(async () => {
+    try {
+      const response = await fetch(`/api/settings?targetSheetId=${SPREADSHEET_ID}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSettings({
+          isAutoCalcActive: data.isAutoCalcActive,
+          calcIntervalSeconds: Number(data.calcIntervalSeconds) || 80,
+          targetSheetId: data.targetSheetId || SPREADSHEET_ID,
+          lastConsolidationTime: data.lastConsolidationTime,
+          autoCalcStatus: data.autoCalcStatus || 'idle',
+          consecutiveFailures: data.consecutiveFailures || 0
+        });
+        if (data.lastConsolidationTime) {
+          setLastConsolidationTime(new Date(data.lastConsolidationTime).toLocaleString());
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    }
+  }, []);
+
+  // Fetch settings once when entering management or admin view
+  React.useEffect(() => {
+    if (phase === ScoutingPhase.MANAGEMENT || phase === ScoutingPhase.ADMIN) {
+      fetchSettings();
+      fetchTeamsGrades();
+    }
+  }, [phase, fetchSettings, fetchTeamsGrades]);
+
+  // Poll for updates only in Management view
+  React.useEffect(() => {
+    if (phase === ScoutingPhase.MANAGEMENT) {
+      const interval = setInterval(fetchSettings, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [phase, fetchSettings]);
+
+  const handleUpdateSettings = async (newSettings: { isAutoCalcActive?: boolean }) => {
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...updated, targetSheetId: SPREADSHEET_ID })
+      });
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      fetchSettings();
+    }
+  };
+
   const handleSeedData = async () => {
     const confirmMsg = language === Language.HE 
       ? 'פעולה זו תיצור 18 רשומות דוגמה (6 לכל קבוצה: 15811, 15928, 25041) ותסנכרן אותן לגוגל שיטס. להמשיך?'
@@ -139,7 +164,8 @@ const App: React.FC = () => {
     
     if (!window.confirm(confirmMsg)) return;
     
-    setIsSeeding(true);
+    setSeedStatus('loading');
+    setSeedError(null);
     const teams = ['15811', '15928', '25041'];
     const scouterNames = ['TestScouter1', 'TestScouter2', 'TestScouter3'];
 
@@ -189,27 +215,29 @@ const App: React.FC = () => {
             headers: ALL_HEADERS
           };
 
-          await fetch('/api/sync', {
+          const resp = await fetch('/api/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(row)
           });
+          if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
           await new Promise(r => setTimeout(r, 200));
         }
       }
-      const successMsg = language === Language.HE ? 'יצירת נתונים הושלמה!' : 'Seeding complete!';
-      alert(successMsg);
+      setSeedStatus('success');
+      setTimeout(() => setSeedStatus('idle'), 3000);
       fetchHistory();
       fetchTeamsGrades();
     } catch (error) {
       console.error('Seeding failed:', error);
-    } finally {
-      setIsSeeding(false);
+      setSeedError(error instanceof Error ? error.message : String(error));
+      setSeedStatus('error');
     }
   };
 
   const handleRecalculate = async () => {
-    setIsRecalculating(true);
+    setRecalcStatus('loading');
+    setRecalcError(null);
     try {
       const response = await fetch('/api/recalculate', {
         method: 'POST',
@@ -218,14 +246,16 @@ const App: React.FC = () => {
       });
       if (response.ok) {
         setLastConsolidationTime(new Date().toLocaleString());
-        const successMsg = language === Language.HE ? 'החישוב הושלם! נתוני הקבוצות עודכנו.' : 'Recalculation complete! Team grades updated.';
-        alert(successMsg);
+        setRecalcStatus('success');
+        setTimeout(() => setRecalcStatus('idle'), 3000);
         fetchTeamsGrades();
+      } else {
+        throw new Error(`Failed with status ${response.status}`);
       }
     } catch (error) {
       console.error('Recalculation error:', error);
-    } finally {
-      setIsRecalculating(false);
+      setRecalcError(error instanceof Error ? error.message : String(error));
+      setRecalcStatus('error');
     }
   };
 
@@ -280,7 +310,7 @@ const App: React.FC = () => {
   };
 
   React.useEffect(() => {
-    fetchHistory();
+    // History and Settings will be fetched only when entering Management or Admin views
   }, []);
 
   const handleLogout = () => {
@@ -503,8 +533,8 @@ const App: React.FC = () => {
   };
 
   const handleInitSheet = async () => {
-    setIsInitializing(true);
     setInitStatus('loading');
+    setInitError(null);
     try {
       const timestamp = dayjs().format('DDMMYYYYHHmm');
       const newSheetName = `${SHEET_NAME} ${timestamp}`;
@@ -522,7 +552,6 @@ const App: React.FC = () => {
 
       if (response.ok) {
         // Proactively ensure headers are in the new sheet by sending a dummy sync
-        // This helps if the script's 'init' action doesn't handle headers correctly
         try {
           await fetch('/api/sync', {
             method: 'POST',
@@ -545,13 +574,12 @@ const App: React.FC = () => {
         setTimeout(() => setInitStatus('idle'), 3000);
         fetchHistory(); // Refresh history
       } else {
-        setInitStatus('error');
+        throw new Error(`Init failed with status ${response.status}`);
       }
     } catch (error) {
       console.error('Init sheet error:', error);
+      setInitError(error instanceof Error ? error.message : String(error));
       setInitStatus('error');
-    } finally {
-      setIsInitializing(false);
     }
   };
 
@@ -677,8 +705,8 @@ const App: React.FC = () => {
           spreadsheetId={SPREADSHEET_ID}
           onBack={() => setPhase(ScoutingPhase.AUTH)}
           onLogout={handleLogout}
-          isSeeding={isSeeding}
-          isRecalculating={isRecalculating}
+          isSeeding={seedStatus === 'loading'}
+          isRecalculating={recalcStatus === 'loading'}
           lastConsolidationTime={lastConsolidationTime}
           autoCalcActive={settings.isAutoCalcActive}
           autoCalcSeconds={settings.calcIntervalSeconds}
@@ -691,6 +719,13 @@ const App: React.FC = () => {
         />;
       case ScoutingPhase.MANAGEMENT:
         const isRTL = language === Language.HE;
+        const getButtonClass = (status: 'idle' | 'loading' | 'success' | 'error') => {
+          if (status === 'loading') return 'bg-emerald-500 text-white cursor-not-allowed';
+          if (status === 'error') return 'bg-red-500 text-white';
+          if (status === 'success') return 'bg-purple-600 text-white';
+          return 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg active:scale-[0.98]';
+        };
+
         return (
           <div className="max-w-6xl mx-auto p-4 sm:p-8 bg-white rounded-[2rem] shadow-2xl border border-slate-200 min-h-[500px] flex flex-col relative overflow-hidden">
             <button 
@@ -711,51 +746,55 @@ const App: React.FC = () => {
               <p className="text-slate-500 font-medium">System initialization and data management</p>
             </div>
  
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full mt-4 items-stretch">
               {/* Initialize Data Sheet Card */}
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center">
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center h-full">
                 <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 mb-4">
                   <RefreshCw size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-slate-800 mb-2">Initialize Data Sheet</h3>
-                <p className="text-xs text-slate-500 mb-6 leading-relaxed flex-grow">
+                <p className="text-xs text-slate-500 mb-6 leading-relaxed">
                   This will archive current <b>{SHEET_NAME}</b> and create a fresh database.
                 </p>
+                {initStatus === 'error' && initError && (
+                  <p className="text-[10px] text-red-500 font-bold mb-4 line-clamp-2">{initError}</p>
+                )}
                 <button 
                   onClick={handleInitSheet}
-                  disabled={isInitializing}
-                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${
-                    initStatus === 'success' ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg'
-                  } ${isInitializing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  disabled={initStatus === 'loading'}
+                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 mt-auto ${getButtonClass(initStatus)}`}
                 >
-                  {isInitializing ? (
+                  {initStatus === 'loading' ? (
                     <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Initializing...</>
                   ) : 'Clean Database'}
                 </button>
               </div>
 
               {/* Seed Data Card */}
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center">
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center h-full">
                 <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mb-4">
                   <TableIcon size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-slate-800 mb-2">{isRTL ? 'יצירת נתוני דוגמה' : 'Generate Sample Data'}</h3>
-                <p className="text-xs text-slate-500 mb-6 leading-relaxed flex-grow">
+                <p className="text-xs text-slate-500 mb-6 leading-relaxed">
                   {isRTL ? 'צור רשומות משחקים פיקטיביות למטרות בדיקה.' : 'Generate dummy match records for testing purposes.'}
                 </p>
+                {seedStatus === 'error' && seedError && (
+                  <p className="text-[10px] text-red-500 font-bold mb-4 line-clamp-2">{seedError}</p>
+                )}
                 <button
                   onClick={handleSeedData}
-                  disabled={isSeeding}
-                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg ${isSeeding ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  disabled={seedStatus === 'loading'}
+                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 mt-auto ${getButtonClass(seedStatus)}`}
                 >
-                  {isSeeding ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Generating...</> : (isRTL ? 'צור נתוני דוגמה' : 'Generate Samples')}
+                  {seedStatus === 'loading' ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Generating...</> : (isRTL ? 'צור נתוני דוגמה' : 'Generate Samples')}
                 </button>
               </div>
 
               {/* Auto Calculate Scores Card */}
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center">
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center h-full">
                 <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 mb-4">
-                  <RefreshCw size={24} className={settings.isAutoCalcActive ? 'animate-spin' : ''} />
+                  <RefreshCw size={24} className={settings.autoCalcStatus === 'running' ? 'animate-spin' : ''} />
                 </div>
                 <h3 className="text-lg font-bold text-slate-800 mb-2">{isRTL ? 'חישוב ציונים אוטומטי' : 'Auto Calculate Scores'}</h3>
                 <div className="flex items-center gap-2 mb-4">
@@ -763,38 +802,50 @@ const App: React.FC = () => {
                   <input 
                     type="number" 
                     value={settings.calcIntervalSeconds}
-                    onChange={(e) => handleUpdateSettings({ calcIntervalSeconds: Number(e.target.value) || 0 })}
-                    className="w-14 bg-white border border-slate-200 rounded-lg px-2 py-1 text-center font-bold text-slate-900 text-xs"
+                    readOnly
+                    className="w-14 bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 text-center font-bold text-slate-400 text-xs shadow-sm cursor-not-allowed"
                   />
                   <span className="text-[10px] font-black text-slate-400 uppercase">{isRTL ? 'שניות' : 'Sec'}</span>
                 </div>
+                {settings.autoCalcStatus === 'error' && (
+                  <p className="text-[10px] text-red-500 font-bold mb-4 line-clamp-2">
+                    {isRTL ? `שגיאה רציפה: ${settings.consecutiveFailures}/5` : `Consecutive Errors: ${settings.consecutiveFailures}/5`}
+                  </p>
+                )}
                 <button
                   onClick={() => handleUpdateSettings({ isAutoCalcActive: !settings.isAutoCalcActive })}
-                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${settings.isAutoCalcActive ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white animate-pulse'}`}
+                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 mt-auto 
+                    ${!settings.isAutoCalcActive && settings.autoCalcStatus !== 'error' ? 'bg-slate-400 text-white' : 
+                      settings.autoCalcStatus === 'running' ? 'bg-emerald-500 text-white' :
+                      settings.autoCalcStatus === 'error' ? 'bg-red-500 text-white' :
+                      'bg-purple-600 text-white hover:bg-purple-700 shadow-lg'}`}
                 >
-                  <div className={`w-2 h-2 rounded-full ${settings.isAutoCalcActive ? 'bg-white' : 'bg-white'}`} />
+                  <div className={`w-2 h-2 rounded-full ${settings.autoCalcStatus === 'running' ? 'bg-white animate-pulse' : 'bg-white/50'}`} />
                   {settings.isAutoCalcActive ? (isRTL ? 'פעיל' : 'Active') : (isRTL ? 'לא פעיל' : 'Inactive')}
                 </button>
               </div>
 
               {/* Consolidate Data Card */}
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center">
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 flex flex-col items-center text-center h-full">
                 <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 mb-4">
                   <RefreshCw size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-slate-800 mb-2">{isRTL ? 'גיבוש נתונים' : 'Consolidate Data'}</h3>
-                <p className="text-xs text-slate-500 mb-1 leading-relaxed flex-grow">
+                <p className="text-xs text-slate-500 mb-1 leading-relaxed">
                   {isRTL ? 'חשב מחדש את כל ציוני הקבוצות מנתוני המשחקים הגולמיים.' : 'Recalculate all team grades from raw match data.'}
                 </p>
                 {lastConsolidationTime && (
                   <span className="text-[9px] font-bold text-emerald-600 mb-4">{isRTL ? 'עודכן:' : 'Last updated:'} {lastConsolidationTime}</span>
                 )}
+                {recalcStatus === 'error' && recalcError && (
+                  <p className="text-[10px] text-red-500 font-bold mb-4 line-clamp-2">{recalcError}</p>
+                )}
                 <button
                   onClick={handleRecalculate}
-                  disabled={isRecalculating}
-                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg ${isRecalculating ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  disabled={recalcStatus === 'loading'}
+                  className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 mt-auto ${getButtonClass(recalcStatus)}`}
                 >
-                  {isRecalculating ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Recalculating...</> : (isRTL ? 'רענן וגבש נתונים' : 'Consolidate Now')}
+                  {recalcStatus === 'loading' ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Recalculating...</> : (isRTL ? 'רענן וגבש נתונים' : 'Consolidate Now')}
                 </button>
               </div>
             </div>

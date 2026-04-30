@@ -29,7 +29,7 @@ interface AdminViewProps {
   lastConsolidationTime: string | null;
   autoCalcActive: boolean;
   autoCalcSeconds: number;
-  onUpdateSettings: (settings: { isAutoCalcActive?: boolean, calcIntervalSeconds?: number }) => void;
+  onUpdateSettings: (settings: { isAutoCalcActive?: boolean }) => void;
   onFetchGrades: () => void;
 }
 

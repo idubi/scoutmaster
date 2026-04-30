@@ -1,6 +1,8 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
+import fetch from "node-fetch";
+import path from "path";
 import { calculateTeamGrade } from "./lib/gradingEngine";
 import { TeamAggregatedData } from "./types";
 import {ENV}  from "./constants";
@@ -8,13 +10,25 @@ import {ENV}  from "./constants";
 
 const GOOGLE_SHEET_URL = ENV.GOOGLE_SHEET_URL;
 
+interface SystemSettings {
+  isAutoCalcActive: boolean;
+  calcIntervalSeconds: number;
+  targetSheetId: string;
+  lastConsolidationTime: string | null;
+}
+
 // Global settings state (in-memory cache)
-let systemSettings = {
+let systemSettings: SystemSettings = {
   isAutoCalcActive: false,
   calcIntervalSeconds: 80,
-  targetSheetId: "",
-  lastConsolidationTime: null as string | null
+  targetSheetId: ENV.SPREADSHEET_ID as string,
+  lastConsolidationTime: null
 };
+
+// Tracking internal state for the auto-calc job
+let autoCalcStatus: 'idle' | 'running' | 'error' = 'idle';
+let consecutiveFailures = 0;
+const MAX_FAILURES = 5;
 
 async function startServer() {
   const app = express();
@@ -50,7 +64,8 @@ async function startServer() {
 
       if (response.ok) {
         if (text.includes("Der Bereich muss mindestens 1 Spalte enthalten") || 
-            text.includes("The range must contain at least one column")) {
+            text.includes("The range must contain at least one column") ||
+            text.trim() === "[]" || text.trim() === "") {
           console.warn("Proxy: Sheet is empty or missing headers. Returning empty array.");
           return res.json([]);
         }
@@ -59,14 +74,17 @@ async function startServer() {
           res.json(data);
         } catch (parseError) {
           console.error("Proxy: Received non-JSON response from Google.");
+          console.error("DEBUG: Response body starts with:", text.substring(0, 500));
           console.error("DEBUG: Try opening this URL in your browser to see the error:");
           console.error(url);
           res.status(500).json({ 
             error: "Google Script returned an error page instead of data.",
-            url: url
+            url: url,
+            details: text.substring(0, 200)
           });
         }
       } else {
+        console.error(`Proxy: Google Script returned error status ${response.status}`);
         res.status(response.status).json({ error: "Google Script returned an error status." });
       }
     } catch (error) {
@@ -78,12 +96,17 @@ async function startServer() {
   // API Proxy for syncing data
   app.post("/api/sync", async (req, res) => {
     const { targetSheetId, sheetName, recordType, action } = req.body;
+    
+    if (!targetSheetId) {
+      return res.status(400).json({ error: "Missing targetSheetId" });
+    }
+
     console.log(`Proxy: SYNC START - Spreadsheet: ${targetSheetId}, Sheet: ${sheetName}, Action: ${action || 'default'}`);
     
     try {
       // We send sheetName in BOTH the URL and the JSON body to be 100% sure Google sees it
-      let url = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${encodeURIComponent(sheetName || '')}`;
-      if (action) url += `&action=${action}`;
+      let url = `${GOOGLE_SHEET_URL}?targetSheetId=${encodeURIComponent(targetSheetId)}&sheetName=${encodeURIComponent(sheetName || '')}`;
+      if (action) url += `&action=${encodeURIComponent(action)}`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -93,7 +116,7 @@ async function startServer() {
       });
       
       const responseText = await response.text();
-      console.log(`Proxy: Google Response: ${responseText}`);
+      console.log(`Proxy: Google Response (first 100 chars): ${responseText.substring(0, 100)}`);
       
       if (responseText.includes("Original sheet not found")) {
         return res.status(404).json({ 
@@ -109,11 +132,57 @@ async function startServer() {
     }
   });
 
+  // Helper to persist settings to Google Sheets
+  async function persistSettingsToSheet(targetId: string) {
+    if (!targetId) return;
+    try {
+      const SETTINGS_SHEET = 'SYSTEM_SETTINGS';
+      const SETTINGS_HEADERS = ['isAutoCalcActive', 'calcIntervalSeconds', 'targetSheetId', 'lastConsolidationTime'];
+      
+      // Use the recreate logic to always have a clean settings row
+      const url = `${GOOGLE_SHEET_URL}?targetSheetId=${encodeURIComponent(targetId)}&sheetName=${encodeURIComponent(SETTINGS_SHEET)}&action=recreate`;
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'recreate', 
+          targetSheetId: targetId, 
+          sheetName: SETTINGS_SHEET,
+          headers: SETTINGS_HEADERS
+        }),
+        redirect: 'follow'
+      });
+
+      // Append the single row of settings
+      await fetch(`${GOOGLE_SHEET_URL}?targetSheetId=${encodeURIComponent(targetId)}&sheetName=${encodeURIComponent(SETTINGS_SHEET)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isAutoCalcActive: String(systemSettings.isAutoCalcActive),
+          calcIntervalSeconds: String(systemSettings.calcIntervalSeconds),
+          targetSheetId: targetId,
+          lastConsolidationTime: systemSettings.lastConsolidationTime || "",
+          sheetName: SETTINGS_SHEET,
+          headers: SETTINGS_HEADERS
+        }),
+        redirect: 'follow'
+      });
+      console.log(`[Settings] Persisted to ${targetId}: LastCons=${systemSettings.lastConsolidationTime}`);
+    } catch (err) {
+      console.error("[Settings] Failed to persist to Google Sheets:", err);
+    }
+  }
+
   app.post("/api/recalculate", async (req, res) => {
     const { targetSheetId } = req.body;
     try {
       await updateTeamsGrades(targetSheetId);
-      res.json({ status: "success", message: "Grades recalculated and consolidated" });
+      
+      // Update local time and PERSIST to DB
+      systemSettings.lastConsolidationTime = new Date().toISOString();
+      await persistSettingsToSheet(targetSheetId);
+      
+      res.json({ status: "success", message: "Grades recalculated and consolidated", lastConsolidationTime: systemSettings.lastConsolidationTime });
     } catch (error: any) {
       console.error("Recalculation error:", error);
       if (error.message === "SHEET_BLANK_ERROR") {
@@ -126,68 +195,48 @@ async function startServer() {
 
   // API to get system settings
   app.get("/api/settings", async (req, res) => {
-    // Optionally fetch from Google Sheets if we wanted true persistence across server restarts
-    // For now, return in-memory
-    res.json(systemSettings);
+    const { targetSheetId } = req.query;
+    
+    // If the client provides a targetSheetId and we don't have one yet, capture it
+    if (targetSheetId && !systemSettings.targetSheetId) {
+      systemSettings.targetSheetId = String(targetSheetId);
+      console.log(`[Settings] Captured targetSheetId from client: ${systemSettings.targetSheetId}`);
+      // Trigger an immediate background fetch to get the master settings from Excel
+      // We await it here so the first client response is accurate
+      await refreshSettingsFromSheet(systemSettings.targetSheetId).catch(console.error);
+    }
+
+    // We rely on the background job (refreshSettingsFromSheet) or the initial sync above to keep systemSettings updated.
+    // This avoids calling Google Sheets API on every frontend poll/load.
+    res.json({
+      ...systemSettings,
+      autoCalcStatus,
+      consecutiveFailures
+    });
   });
 
   // API to update system settings
   app.post("/api/settings", async (req, res) => {
-    const { isAutoCalcActive, calcIntervalSeconds, targetSheetId, lastConsolidationTime } = req.body;
+    const { isAutoCalcActive, targetSheetId, lastConsolidationTime } = req.body;
     
     // Update local cache
     systemSettings = {
       isAutoCalcActive: !!isAutoCalcActive,
-      calcIntervalSeconds: Number(calcIntervalSeconds) || 80,
+      calcIntervalSeconds: systemSettings.calcIntervalSeconds, // Keep existing, only changeable via Excel fetch
       targetSheetId: targetSheetId || systemSettings.targetSheetId,
       lastConsolidationTime: lastConsolidationTime === undefined ? systemSettings.lastConsolidationTime : lastConsolidationTime
     };
 
-    console.log(`[Settings] Updated: Active=${systemSettings.isAutoCalcActive}, Interval=${systemSettings.calcIntervalSeconds}s, LastPos=${systemSettings.lastConsolidationTime}`);
-
-    // Persist to Google Sheets in a SYSTEM_SETTINGS sheet
+    console.log(`[Settings] Updated by Client (ignoring interval): Active=${systemSettings.isAutoCalcActive}, Interval=${systemSettings.calcIntervalSeconds}s`);
+    
     if (systemSettings.targetSheetId) {
-      try {
-        const SETTINGS_SHEET = 'SYSTEM_SETTINGS';
-        const SETTINGS_HEADERS = ['isAutoCalcActive', 'calcIntervalSeconds', 'targetSheetId', 'lastConsolidationTime'];
-        
-        // Use the recreate logic to always have a clean settings row
-        const url = `${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${SETTINGS_SHEET}&action=recreate`;
-        await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'recreate', 
-            targetSheetId: systemSettings.targetSheetId, 
-            sheetName: SETTINGS_SHEET,
-            headers: SETTINGS_HEADERS
-          }),
-          redirect: 'follow'
-        });
-
-        // Append the single row of settings
-        await fetch(`${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${SETTINGS_SHEET}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            isAutoCalcActive: String(systemSettings.isAutoCalcActive),
-            calcIntervalSeconds: String(systemSettings.calcIntervalSeconds),
-            targetSheetId: systemSettings.targetSheetId,
-            lastConsolidationTime: systemSettings.lastConsolidationTime || "",
-            sheetName: SETTINGS_SHEET,
-            headers: SETTINGS_HEADERS
-          }),
-          redirect: 'follow'
-        });
-      } catch (err) {
-        console.error("[Settings] Failed to persist to Google Sheets:", err);
-      }
+      await persistSettingsToSheet(systemSettings.targetSheetId);
     }
 
     res.json({ status: "success", settings: systemSettings });
   });
 
-  async function updateTeamsGrades(targetSheetId: string, newMatchData?: any): Promise<boolean> {
+  async function updateTeamsGrades(targetSheetId: string, newMatchData?: any) {
     const TEAMS_GRADES_SHEET = 'TEAMS_GRADES';
     const RAW_DATA_SHEET = 'scoutsmaster_ongoing';
     const TEAMS_GRADES_HEADERS = [
@@ -203,8 +252,8 @@ async function startServer() {
       const consolidatedMap = new Map<string, TeamAggregatedData>();
 
       if (newMatchData) {
-        // --- INCREMENTAL UPDATE (Single Record) ---
-        // 1. Fetch current TEAMS_GRADES to maintain context
+        // --- INCREMENTAL UPDATE ---
+        // 1. Fetch current TEAMS_GRADES
         const fetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${TEAMS_GRADES_SHEET}`;
         const fetchResponse = await fetch(fetchUrl, { redirect: 'follow' });
         const fetchText = await fetchResponse.text();
@@ -314,67 +363,21 @@ async function startServer() {
           }
         }
       } else {
-        // --- GRANULAR FULL RECALCULATION (Optimized) ---
-        console.log("[Recalculate] Executing Granular Full Recalculation...");
-        
-        // 1. Fetch current TEAMS_GRADES (Stored Data)
-        const gradesFetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${TEAMS_GRADES_SHEET}`;
-        const gradesFetchRes = await fetch(gradesFetchUrl, { redirect: 'follow' });
-        const gradesFetchText = await gradesFetchRes.text();
-        const existingGradesMap = new Map<string, TeamAggregatedData>();
-        
-        if (gradesFetchRes.ok && !gradesFetchText.includes("not found")) {
-          try {
-            const parsedGrades = JSON.parse(gradesFetchText);
-            if (Array.isArray(parsedGrades)) {
-              parsedGrades.forEach((row: any) => {
-                if (row.TeamNumber) {
-                  existingGradesMap.set(String(row.TeamNumber), {
-                    TeamNumber: String(row.TeamNumber),
-                    GAMES_COUNT: Number(row.GAMES_COUNT || 0),
-                    TOTAL_TELEOP_HIT: Number(row.TOTAL_TELEOP_HIT || 0),
-                    TOTAL_AUTONOMUS_HIT: Number(row.TOTAL_AUTONOMUS_HIT || 0),
-                    TOTAL_TELEOP_MISS: Number(row.TOTAL_TELEOP_MISS || 0),
-                    TOTAL_AUTONOMUS_MISS: Number(row.TOTAL_AUTONOMUS_MISS || 0),
-                    TOTAL_IS_FULL_PARKING: Number(row.TOTAL_IS_FULL_PARKING || 0),
-                    TOTAL_AUTO_ZONE_SMALL: Number(row.TOTAL_AUTO_ZONE_SMALL || 0),
-                    TOTAL_AUTO_ZONE_BIG: Number(row.TOTAL_AUTO_ZONE_BIG || 0),
-                    TOTAL_TELEOP_ZONE_SMALL: Number(row.TOTAL_TELEOP_ZONE_SMALL || 0),
-                    TOTAL_TELEOP_ZONE_BIG: Number(row.TOTAL_TELEOP_ZONE_BIG || 0),
-                    TOTAL_AUTO_LEAVE: Number(row.TOTAL_AUTO_LEAVE || 0),
-                    TOTAL_FOULS: Number(row.TOTAL_FOULS || 0),
-                    TOTAL_GATE_FOULS: Number(row.TOTAL_GATE_FOULS || 0),
-                    TOTAL_PARKING_FOULS: Number(row.TOTAL_PARKING_FOULS || 0),
-                    TOTAL_INTAKE_FOULS: Number(row.TOTAL_INTAKE_FOULS || 0),
-                    GRADE: Number(row.GRADE || 0),
-                    RATIO: Number(row.RATIO || 0),
-                    RANK: Number(row.RANK || 0)
-                  });
-                }
-              });
-            }
-          } catch (e) {
-            console.warn("[Recalculate] Could not parse existing grades. Will treat all teams as dirty.");
-          }
-        }
-
-        // 2. Fetch Raw Data from scoutsmaster_ongoing
-        const rawFetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${RAW_DATA_SHEET}`;
-        const rawFetchRes = await fetch(rawFetchUrl, { redirect: 'follow' });
-        const rawFetchText = await rawFetchRes.text();
+        // --- FULL RECALCULATION (Manual) ---
+        const fetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${targetSheetId}&sheetName=${RAW_DATA_SHEET}`;
+        const fetchResponse = await fetch(fetchUrl, { redirect: 'follow' });
+        const fetchText = await fetchResponse.text();
         
         let rawData: any[] = [];
-        if (rawFetchRes.ok && !rawFetchText.includes("not found")) {
+        if (fetchResponse.ok && !fetchText.includes("not found")) {
           try {
-            const parsed = JSON.parse(rawFetchText);
+            const parsed = JSON.parse(fetchText);
             rawData = Array.isArray(parsed) ? parsed : [];
           } catch (e) {
-            console.error("[Recalculate] Failed to parse raw data.");
+            console.warn("Could not parse raw data for aggregation.");
           }
         }
 
-        // 3. Group raw records by team and count actual matches
-        const teamRecordsMap = new Map<string, any[]>();
         rawData.forEach(match => {
           const recType = match.recordType || match['recordType'];
           if (recType && recType !== 'MATCH_COMPLETE') return;
@@ -382,86 +385,71 @@ async function startServer() {
           const teamNumber = String(match.teamScouted || '').trim();
           if (!teamNumber) return;
 
-          if (!teamRecordsMap.has(teamNumber)) {
-            teamRecordsMap.set(teamNumber, []);
+          const teleHit = Number(match.teleBallHit || 0);
+          const autoHit = Number(match.autoBallHit || 0);
+          const teleMiss = Number(match.teleBallMiss || 0);
+          const autoMiss = Number(match.autoBallMiss || 0);
+          
+          let isFullParking = 0;
+          if (match.teleFullParking !== undefined) {
+            isFullParking = match.teleFullParking ? 1 : 0;
           }
-          teamRecordsMap.get(teamNumber)!.push(match);
-        });
 
-        // 4. Compare Actual vs Stored and identify "dirty" or new teams
-        let anyChanges = false;
-        teamRecordsMap.forEach((matches, teamNumber) => {
-          const actualCount = matches.length;
-          const stored = existingGradesMap.get(teamNumber);
-          const storedCount = stored ? stored.GAMES_COUNT : 0;
+          const autoSmall = match.isAutoZoneSmall === true || match.isAutoZoneSmall === 'TRUE' ? 1 : 0;
+          const autoBig = match.isAutoZoneBig === true || match.isAutoZoneBig === 'TRUE' ? 1 : 0;
+          const teleSmall = match.isTeleopZoneSmall === true || match.isTeleopZoneSmall === 'TRUE' ? 1 : 0;
+          const teleBig = match.isTeleopZoneBig === true || match.isTeleopZoneBig === 'TRUE' ? 1 : 0;
+          const autoLeave = match.isAutoLeave === true || match.isAutoLeave === 'TRUE' ? 1 : 0;
 
-          if (stored && actualCount === storedCount) {
-            // OPTIMIZATION: Use stored data
-            consolidatedMap.set(teamNumber, { ...stored });
+          const gateFoul = Number(match.teleGateFoul || 0);
+          const parkingFoul = Number(match.teleParkingFoul || 0);
+          const intakeFoul = Number(match.teleIntakeFoul || 0);
+          let fouls = gateFoul + parkingFoul + intakeFoul;
+          if (fouls === 0 && match.teleFoulCount) {
+            fouls = Number(match.teleFoulCount);
+          }
+
+          if (consolidatedMap.has(teamNumber)) {
+            const existing = consolidatedMap.get(teamNumber)!;
+            existing.GAMES_COUNT += 1;
+            existing.TOTAL_TELEOP_HIT += teleHit;
+            existing.TOTAL_AUTONOMUS_HIT += autoHit;
+            existing.TOTAL_TELEOP_MISS += teleMiss;
+            existing.TOTAL_AUTONOMUS_MISS += autoMiss;
+            existing.TOTAL_IS_FULL_PARKING += isFullParking;
+            existing.TOTAL_AUTO_ZONE_SMALL += autoSmall;
+            existing.TOTAL_AUTO_ZONE_BIG += autoBig;
+            existing.TOTAL_TELEOP_ZONE_SMALL += teleSmall;
+            existing.TOTAL_TELEOP_ZONE_BIG += teleBig;
+            existing.TOTAL_AUTO_LEAVE += autoLeave;
+            existing.TOTAL_FOULS += fouls;
+            existing.TOTAL_GATE_FOULS += gateFoul;
+            existing.TOTAL_PARKING_FOULS += parkingFoul;
+            existing.TOTAL_INTAKE_FOULS += intakeFoul;
           } else {
-            // ACTION: Mark as modified/new and re-aggregate
-            anyChanges = true;
-            console.log(`[Recalculate] Team ${teamNumber}: Detected ${actualCount} records (was ${storedCount}). Recalculating...`);
-            
-            const newAgg: TeamAggregatedData = {
+            consolidatedMap.set(teamNumber, {
               TeamNumber: teamNumber,
-              GAMES_COUNT: actualCount,
-              TOTAL_TELEOP_HIT: 0,
-              TOTAL_AUTONOMUS_HIT: 0,
-              TOTAL_TELEOP_MISS: 0,
-              TOTAL_AUTONOMUS_MISS: 0,
-              TOTAL_IS_FULL_PARKING: 0,
-              TOTAL_AUTO_ZONE_SMALL: 0,
-              TOTAL_AUTO_ZONE_BIG: 0,
-              TOTAL_TELEOP_ZONE_SMALL: 0,
-              TOTAL_TELEOP_ZONE_BIG: 0,
-              TOTAL_AUTO_LEAVE: 0,
-              TOTAL_FOULS: 0,
-              TOTAL_GATE_FOULS: 0,
-              TOTAL_PARKING_FOULS: 0,
-              TOTAL_INTAKE_FOULS: 0,
+              GAMES_COUNT: 1,
+              TOTAL_TELEOP_HIT: teleHit,
+              TOTAL_AUTONOMUS_HIT: autoHit,
+              TOTAL_TELEOP_MISS: teleMiss,
+              TOTAL_AUTONOMUS_MISS: autoMiss,
+              TOTAL_IS_FULL_PARKING: isFullParking,
+              TOTAL_AUTO_ZONE_SMALL: autoSmall,
+              TOTAL_AUTO_ZONE_BIG: autoBig,
+              TOTAL_TELEOP_ZONE_SMALL: teleSmall,
+              TOTAL_TELEOP_ZONE_BIG: teleBig,
+              TOTAL_AUTO_LEAVE: autoLeave,
+              TOTAL_FOULS: fouls,
+              TOTAL_GATE_FOULS: gateFoul,
+              TOTAL_PARKING_FOULS: parkingFoul,
+              TOTAL_INTAKE_FOULS: intakeFoul,
               GRADE: 0,
               RATIO: 0,
               RANK: 0
-            };
-
-            matches.forEach(match => {
-              newAgg.TOTAL_TELEOP_HIT += Number(match.teleBallHit || 0);
-              newAgg.TOTAL_AUTONOMUS_HIT += Number(match.autoBallHit || 0);
-              newAgg.TOTAL_TELEOP_MISS += Number(match.teleBallMiss || 0);
-              newAgg.TOTAL_AUTONOMUS_MISS += Number(match.autoBallMiss || 0);
-              
-              if (match.teleFullParking === true || match.teleFullParking === 'TRUE') {
-                newAgg.TOTAL_IS_FULL_PARKING += 1;
-              }
-
-              newAgg.TOTAL_AUTO_ZONE_SMALL += (match.isAutoZoneSmall === true || match.isAutoZoneSmall === 'TRUE' ? 1 : 0);
-              newAgg.TOTAL_AUTO_ZONE_BIG += (match.isAutoZoneBig === true || match.isAutoZoneBig === 'TRUE' ? 1 : 0);
-              newAgg.TOTAL_TELEOP_ZONE_SMALL += (match.isTeleopZoneSmall === true || match.isTeleopZoneSmall === 'TRUE' ? 1 : 0);
-              newAgg.TOTAL_TELEOP_ZONE_BIG += (match.isTeleopZoneBig === true || match.isTeleopZoneBig === 'TRUE' ? 1 : 0);
-              newAgg.TOTAL_AUTO_LEAVE += (match.isAutoLeave === true || match.isAutoLeave === 'TRUE' ? 1 : 0);
-
-              const gF = Number(match.teleGateFoul || 0);
-              const pF = Number(match.teleParkingFoul || 0);
-              const iF = Number(match.teleIntakeFoul || 0);
-              let fCount = gF + pF + iF;
-              if (fCount === 0 && match.teleFoulCount) fCount = Number(match.teleFoulCount);
-
-              newAgg.TOTAL_FOULS += fCount;
-              newAgg.TOTAL_GATE_FOULS += gF;
-              newAgg.TOTAL_PARKING_FOULS += pF;
-              newAgg.TOTAL_INTAKE_FOULS += iF;
             });
-
-            consolidatedMap.set(teamNumber, newAgg);
           }
         });
-
-        // 5. Short-circuit if no changes detected
-        if (!anyChanges) {
-          console.log("[Recalculate] Granular Check Passed: No teams require updates. Skipping sheet rewrite.");
-          return false;
-        }
       }
 
       // 3. Calculate Grades and Ratios for all teams
@@ -525,7 +513,6 @@ async function startServer() {
           console.log(`[Recalculate] Successfully appended team ${team.TeamNumber}.`);
         }
       }
-      return true;
     } catch (error) {
       console.error("Error in updateTeamsGrades:", error);
       throw error;
@@ -578,72 +565,139 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static("dist"));
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    if (systemSettings.targetSheetId) {
+      refreshSettingsFromSheet(systemSettings.targetSheetId).catch(err => 
+        console.error("[Settings] Initial fetch failed:", err)
+      );
+    }
   });
+
+  async function refreshSettingsFromSheet(targetId: string) {
+    if (!targetId) return;
+    try {
+      const SETTINGS_SHEET = 'SYSTEM_SETTINGS';
+      const url = `${GOOGLE_SHEET_URL}?targetSheetId=${encodeURIComponent(targetId)}&sheetName=${encodeURIComponent(SETTINGS_SHEET)}`;
+      const response = await fetch(url, { redirect: 'follow' });
+      
+      if (response.ok) {
+        const text = await response.text();
+        if (!text.includes("not found") && text.trim() !== "" && !text.includes("<!DOCTYPE html>")) {
+          try {
+            const data = JSON.parse(text);
+            if (Array.isArray(data) && data.length > 0) {
+              const latest = data[0];
+              systemSettings = {
+                isAutoCalcActive: latest.isAutoCalcActive === true || latest.isAutoCalcActive === 'TRUE',
+                calcIntervalSeconds: Number(latest.calcIntervalSeconds) || 80,
+                targetSheetId: String(targetId),
+                lastConsolidationTime: latest.lastConsolidationTime || null
+              };
+            }
+          } catch (e) {
+            console.warn("[Settings] Refresh: data malformed.");
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[Settings] Refresh failed:", err);
+    }
+  }
 
   // --- BACKEND BATCH JOB (Asynchronous Recalculation) ---
   let isJobRunning = false;
   let lastRunTime = 0;
+  let lastSettingsFetchTime = 0;
 
   setInterval(async () => {
-    if (!systemSettings.isAutoCalcActive || !systemSettings.targetSheetId) return;
-
+    // Periodically fetch settings from Excel to ensure it's the master
     const now = Date.now();
+    if (systemSettings.targetSheetId && (now - lastSettingsFetchTime > 30000)) {
+      await refreshSettingsFromSheet(systemSettings.targetSheetId);
+      lastSettingsFetchTime = now;
+    }
+
+    if (!systemSettings.isAutoCalcActive || !systemSettings.targetSheetId) {
+      if (!systemSettings.isAutoCalcActive && autoCalcStatus !== 'error') {
+        autoCalcStatus = 'idle';
+      }
+      return;
+    }
+
     const intervalMs = systemSettings.calcIntervalSeconds * 1000;
 
     if (now - lastRunTime >= intervalMs && !isJobRunning) {
       isJobRunning = true;
+      autoCalcStatus = 'running';
       console.log(`[Batch Job] Starting scheduled execution for ${systemSettings.targetSheetId}...`);
       
       try {
-        const didUpdate = await updateTeamsGrades(systemSettings.targetSheetId);
+        // Step 1: Fetch Raw Data and check for new games
+        const RAW_DATA_SHEET = 'scoutsmaster_ongoing';
+        const fetchUrl = `${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${RAW_DATA_SHEET}`;
+        const fetchResponse = await fetch(fetchUrl, { redirect: 'follow' });
+        const fetchText = await fetchResponse.text();
         
-        if (didUpdate) {
-          // Update the freshness marker
-          systemSettings.lastConsolidationTime = new Date().toISOString();
-          
-          // Persist the new timestamp to SYSTEM_SETTINGS sheet
-          const SETTINGS_SHEET = 'SYSTEM_SETTINGS';
-          const SETTINGS_HEADERS = ['isAutoCalcActive', 'calcIntervalSeconds', 'targetSheetId', 'lastConsolidationTime'];
-          
-          await fetch(`${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${SETTINGS_SHEET}&action=recreate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              action: 'recreate', 
-              targetSheetId: systemSettings.targetSheetId, 
-              sheetName: SETTINGS_SHEET,
-              headers: SETTINGS_HEADERS
-            }),
-            redirect: 'follow'
-          });
+        let rawData: any[] = [];
+        if (fetchResponse.ok && !fetchText.includes("not found")) {
+          rawData = JSON.parse(fetchText);
+        }
 
-          await fetch(`${GOOGLE_SHEET_URL}?targetSheetId=${systemSettings.targetSheetId}&sheetName=${SETTINGS_SHEET}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              isAutoCalcActive: String(systemSettings.isAutoCalcActive),
-              calcIntervalSeconds: String(systemSettings.calcIntervalSeconds),
-              targetSheetId: systemSettings.targetSheetId,
-              lastConsolidationTime: systemSettings.lastConsolidationTime,
-              sheetName: SETTINGS_SHEET,
-              headers: SETTINGS_HEADERS
-            }),
-            redirect: 'follow'
-          });
+        // Filter and collect affected teams
+        const lastConsolidationDate = systemSettings.lastConsolidationTime ? new Date(systemSettings.lastConsolidationTime) : new Date(0);
+        let newestTimestamp = lastConsolidationDate;
+        
+        const affectedTeams = new Set<string>();
+        const validGames = rawData.filter(game => {
+          const timestamp = new Date(game.Timestamp || game.timestamp);
+          const isNew = timestamp > lastConsolidationDate;
+          
+          if (isNew) {
+            if (timestamp > newestTimestamp) newestTimestamp = timestamp;
+            const team = String(game.teamScouted || '').trim();
+            if (team) affectedTeams.add(team);
+          }
+          return isNew;
+        });
+
+        if (affectedTeams.size > 0) {
+          console.log(`[Batch Job] Found ${validGames.length} new games affecting ${affectedTeams.size} teams.`);
+          
+          await updateTeamsGrades(systemSettings.targetSheetId);
+          
+          systemSettings.lastConsolidationTime = new Date().toISOString();
+          await persistSettingsToSheet(systemSettings.targetSheetId);
 
           console.log(`[Batch Job] Successfully processed batch. Freshness marker: ${systemSettings.lastConsolidationTime}`);
         } else {
-          console.log(`[Batch Job] No changes detected in match counts. Skipping rewrite.`);
+          console.log(`[Batch Job] No new games since ${lastConsolidationDate.toLocaleString()}. Skipping.`);
+          // Update lastConsolidationTime anyway to show the system checked
+          systemSettings.lastConsolidationTime = new Date().toISOString();
+          await persistSettingsToSheet(systemSettings.targetSheetId);
         }
         
         lastRunTime = Date.now();
+        consecutiveFailures = 0; // Reset on success
+        autoCalcStatus = 'idle';
       } catch (err) {
         console.error(`[Batch Job] Critical error:`, err);
+        consecutiveFailures++;
+        autoCalcStatus = 'error';
+        
+        if (consecutiveFailures >= MAX_FAILURES) {
+          console.error(`[Batch Job] Stopped after ${consecutiveFailures} consecutive failures cycle.`);
+          systemSettings.isAutoCalcActive = false;
+          // Note: Normally we'd post a log, but for now we just disable and set error status
+          await persistSettingsToSheet(systemSettings.targetSheetId);
+        }
       } finally {
         isJobRunning = false;
       }
