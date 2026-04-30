@@ -1,4 +1,4 @@
-import { TeamAggregatedData, TeamGradeResult } from '../types';
+import type { TeamAggregatedData, TeamGradeResult } from '../types.ts';
 
 /**
  * Grading Engine Weights

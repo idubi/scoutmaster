@@ -1,16 +1,18 @@
-export enum ScoutingPhase {
-  AUTH = 'AUTH',
-  AUTONOMOUS = 'AUTONOMOUS',
-  TELEOP = 'TELEOP',
-  SUMMARY = 'SUMMARY',
-  ADMIN = 'ADMIN',
-  MANAGEMENT = 'MANAGEMENT'
-}
+export const ScoutingPhase = {
+  AUTH: 'AUTH',
+  AUTONOMOUS: 'AUTONOMOUS',
+  TELEOP: 'TELEOP',
+  SUMMARY: 'SUMMARY',
+  ADMIN: 'ADMIN',
+  MANAGEMENT: 'MANAGEMENT'
+} as const;
+export type ScoutingPhase = typeof ScoutingPhase[keyof typeof ScoutingPhase];
 
-export enum Language {
-  EN = 'EN',
-  HE = 'HE'
-}
+export const Language = {
+  EN: 'EN',
+  HE: 'HE'
+} as const;
+export type Language = typeof Language[keyof typeof Language];
 
 export interface User {
   teamScouted: string; // The team we are scouting

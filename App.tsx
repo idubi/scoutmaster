@@ -134,14 +134,6 @@ const App: React.FC = () => {
     }
   }, [phase, fetchSettings, fetchTeamsGrades]);
 
-  // Poll for updates only in Management view
-  React.useEffect(() => {
-    if (phase === ScoutingPhase.MANAGEMENT) {
-      const interval = setInterval(fetchSettings, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [phase, fetchSettings]);
-
   const handleUpdateSettings = async (newSettings: { isAutoCalcActive?: boolean }) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
@@ -258,13 +250,6 @@ const App: React.FC = () => {
       setRecalcStatus('error');
     }
   };
-
-  React.useEffect(() => {
-    if (phase === ScoutingPhase.MANAGEMENT || phase === ScoutingPhase.ADMIN) {
-      fetchSettings();
-      fetchTeamsGrades();
-    }
-  }, [phase, fetchSettings, fetchTeamsGrades]);
 
   const t = language === Language.HE ? AppTranslation_HE : AppTranslation_EN;
 
