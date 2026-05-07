@@ -141,3 +141,12 @@ export interface TeamGradeResult {
   grade: number;
   ratio: number;
 }
+
+export interface ProcessLog {
+  id: string;
+  timestamp: string;
+  rowTimestamp: string;
+  teamNumber: string;
+  action: 'updated' | 'already_updated' | 'skipped' | 'triggered' | 'cleared';
+  details: string;
+}

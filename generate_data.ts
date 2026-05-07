@@ -8,8 +8,10 @@ const GOOGLE_SHEET_URL = ENV.GOOGLE_SHEET_URL;
 
 
 
-const SPREADSHEET_ID = '1pA-8L0iNw4WJqKXqVHcXLoAUxZDVrJHl_8bYR7pg64Y';
-const SHEET_NAME = 'scoutsmaster_ongoing';
+const SPREADSHEET_ID = ENV.SPREADSHEET_ID;
+
+const SHEET_NAME = ENV.SHEET_NAME;
+
 
 const TEAMS = ['15811', '15928', '25041', '6798'];
 const MATCHES = [1, 2, 3, 4, 5, 6];

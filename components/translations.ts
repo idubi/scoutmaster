@@ -334,6 +334,15 @@ export const AdminTranslation_EN = {
   rank: "Rank #",
   grade: "Grade",
   ratioTie: "Ratio",
+  processLogs: "Process Logs",
+  rowTimestamp: "Data Timestamp",
+  logTimestamp: "Process Time",
+  action: "Status",
+  details: "Details",
+  updated: "Updated score",
+  already_updated: "Already processed",
+  skipped: "Skipped",
+  logDetails: "Log Details"
 };
 
 export const AdminTranslation_HE = {
@@ -436,6 +445,15 @@ export const AdminTranslation_HE = {
   rank: "דירוג #",
   grade: "ציון",
   ratioTie: "יחס",
+  processLogs: "יומן עיבוד",
+  rowTimestamp: "זמן נתונים",
+  logTimestamp: "זמן עיבוד",
+  action: "סטטוס",
+  details: "פרטים",
+  updated: "עודכן ציון",
+  already_updated: "עובד כבר",
+  skipped: "דולג",
+  logDetails: "פרטי יומן"
 };
 
 export const AppTranslation_EN = {

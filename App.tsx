@@ -73,6 +73,7 @@ const App: React.FC = () => {
   const [resetKey, setResetKey] = useState(0);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSystemPaused, setIsSystemPaused] = useState(false);
   const [seedStatus, setSeedStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [seedError, setSeedError] = useState<string | null>(null);
   const [recalcStatus, setRecalcStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -88,6 +89,23 @@ const App: React.FC = () => {
     autoCalcStatus: 'idle' as 'idle' | 'running' | 'error',
     consecutiveFailures: 0
   });
+
+  React.useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch('/api/system-status');
+        if (res.ok) {
+          const data = await res.json();
+          setIsSystemPaused(data.isSystemPaused);
+        }
+      } catch (e) {
+        console.error("Failed to check system status", e);
+      }
+    };
+    checkStatus();
+    const interval = setInterval(checkStatus, 10000); // Check every 10s
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchTeamsGrades = React.useCallback(async () => {
     setIsLoadingGrades(true);
@@ -131,6 +149,13 @@ const App: React.FC = () => {
     if (phase === ScoutingPhase.MANAGEMENT || phase === ScoutingPhase.ADMIN) {
       fetchSettings();
       fetchTeamsGrades();
+
+      // Poll settings for lastConsolidationTime and status every 30 seconds
+      const pollInterval = setInterval(() => {
+        fetchSettings();
+      }, 30000);
+
+      return () => clearInterval(pollInterval);
     }
   }, [phase, fetchSettings, fetchTeamsGrades]);
 
@@ -815,13 +840,17 @@ const App: React.FC = () => {
                 <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 mb-4">
                   <RefreshCw size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800 mb-2">{isRTL ? 'גיבוש נתונים' : 'Consolidate Data'}</h3>
-                <p className="text-xs text-slate-500 mb-1 leading-relaxed">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <h3 className="text-lg font-bold text-slate-800">{isRTL ? 'גיבוש נתונים' : 'Consolidate Data'}</h3>
+                  {lastConsolidationTime && (
+                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 animate-pulse">
+                      {isRTL ? 'עודכן:' : 'Last updated:'} {lastConsolidationTime}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mb-4 leading-relaxed">
                   {isRTL ? 'חשב מחדש את כל ציוני הקבוצות מנתוני המשחקים הגולמיים.' : 'Recalculate all team grades from raw match data.'}
                 </p>
-                {lastConsolidationTime && (
-                  <span className="text-[9px] font-bold text-emerald-600 mb-4">{isRTL ? 'עודכן:' : 'Last updated:'} {lastConsolidationTime}</span>
-                )}
                 {recalcStatus === 'error' && recalcError && (
                   <p className="text-[10px] text-red-500 font-bold mb-4 line-clamp-2">{recalcError}</p>
                 )}
@@ -847,6 +876,30 @@ const App: React.FC = () => {
     }
   };
 
+  if (isSystemPaused) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full text-center border border-slate-100">
+          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-600">
+            <Radio size={40} className="animate-pulse" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-800 mb-4">
+            {language === Language.HE ? 'המערכת מושבתת זמנית' : 'System Temporarily Paused'}
+          </h1>
+          <p className="text-slate-600 mb-6 leading-relaxed">
+            {language === Language.HE 
+              ? 'המערכת כבויה כרגע בהתאם לבקשת המשתמש. נא להמתין לעדכון נוסף.' 
+              : 'The application is currently shut down per user request. Please wait for further updates.'}
+          </p>
+          <div className="flex items-center justify-center gap-2 text-slate-400 text-sm font-mono">
+            <div className="w-2 h-2 rounded-full bg-amber-400"></div>
+            <span>Maintenance Mode</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Layout 
       user={user} 
@@ -855,6 +908,7 @@ const App: React.FC = () => {
       onLanguageToggle={() => setLanguage(l => l === Language.HE ? Language.EN : Language.HE)}
       isNavExpanded={isNavExpanded}
       onToggleNav={() => setIsNavExpanded(!isNavExpanded)}
+      onLogoClick={() => setPhase(ScoutingPhase.AUTH)}
     >
       <div className="max-w-4xl mx-auto px-2 py-4 sm:px-4 sm:py-6" dir={language === Language.HE ? 'rtl' : 'ltr'}>
         <div className="bg-white rounded-3xl shadow-2xl p-6">

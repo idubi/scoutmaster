@@ -9,8 +9,8 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
-import { Search, Table as TableIcon, BarChart3, ArrowLeft, ChevronDown, Check, X, Trophy, RefreshCw } from 'lucide-react';
-import { Language, SpreadsheetRow, TeamAggregatedData } from '../../types';
+import { Search, Table as TableIcon, BarChart3, ArrowLeft, ChevronDown, Check, X, Trophy, RefreshCw, ScrollText, History, AlertCircle, Clock, Trash2 } from 'lucide-react';
+import { Language, SpreadsheetRow, TeamAggregatedData, ProcessLog } from '../../types';
 import { AdminTranslation_EN, AdminTranslation_HE } from '../translations';
 import { calculateTeamGrade } from '../../lib/gradingEngine';
 
@@ -51,13 +51,51 @@ const AdminView: React.FC<AdminViewProps> = ({
   onUpdateSettings,
   onFetchGrades
 }) => {
-  const [activeTab, setActiveTab] = useState<'investigation' | 'compare' | 'game'>('investigation');
+  const [activeTab, setActiveTab] = useState<'investigation' | 'compare' | 'game' | 'logs'>('investigation');
   const [compareTab, setCompareTab] = useState<'ranking' | 'auto'>('ranking');
   const [selectedMatch, setSelectedMatch] = useState<string>('');
   const [isMatchDropdownOpen, setIsMatchDropdownOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
+  const [logs, setLogs] = useState<ProcessLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   
   const matchDropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleClearLogs = async () => {
+    if (!window.confirm(isRTL ? 'האם בטוח למחוק את כל היומנים?' : 'Clear all logs?')) return;
+    setIsClearing(true);
+    try {
+      const res = await fetch('/api/clear-logs', { method: 'POST' });
+      if (res.ok) setLogs([]);
+    } catch (e) {
+      console.error("Failed to clear logs", e);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      const fetchLogs = async () => {
+        setIsLoadingLogs(true);
+        try {
+          const res = await fetch('/api/process-logs');
+          if (res.ok) {
+            const data = await res.json();
+            setLogs(data);
+          }
+        } catch (e) {
+          console.error("Failed to fetch process logs", e);
+        } finally {
+          setIsLoadingLogs(false);
+        }
+      };
+      fetchLogs();
+      const interval = setInterval(fetchLogs, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
   
   // Sync team selection
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
@@ -512,6 +550,12 @@ const AdminView: React.FC<AdminViewProps> = ({
                 className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'game' ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}`}
               >
                 {t.gameView}
+              </button>
+              <button 
+                onClick={() => setActiveTab('logs')}
+                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'logs' ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}`}
+              >
+                {t.processLogs}
               </button>
             </div>
           </div>
@@ -1448,6 +1492,144 @@ const AdminView: React.FC<AdminViewProps> = ({
               </div>
             )}
       </div>
+      {activeTab === 'logs' && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-white border-2 border-slate-900 rounded-[2rem] p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
+                  <ScrollText size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{t.processLogs}</h2>
+                  <p className="text-xs text-slate-500 font-bold">{isRTL ? 'מעקב בזמן אמת אחר עיבודי מערכת אוטומטיים' : 'Real-time tracking of automatic system processing'}</p>
+                </div>
+              </div>
+              <div className={`px-4 py-2 rounded-xl flex items-center gap-4 border-2 ${autoCalcActive ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-red-50 border-red-500 text-red-700'}`}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${autoCalcActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                  <span className="text-xs font-black uppercase tracking-widest">
+                    {isRTL 
+                      ? (autoCalcActive ? 'חישוב אוטומטי פעיל' : 'חישוב אוטומטי כבוי') 
+                      : (autoCalcActive ? 'Auto-Calc Active' : 'Auto-Calc Inactive')}
+                  </span>
+                  <button 
+                    onClick={() => onUpdateSettings({ isAutoCalcActive: !autoCalcActive })}
+                    className="ml-2 hover:underline font-bold text-[10px] text-slate-600"
+                  >
+                    {isRTL 
+                      ? (autoCalcActive ? '(הפסק)' : '(הפעל)') 
+                      : (autoCalcActive ? '(Disable)' : '(Enable)')}
+                  </button>
+                </div>
+                
+                <div className="w-px h-4 bg-slate-300" />
+
+                <button
+                  onClick={async () => {
+                    if (isClearing) return;
+                    setIsClearing(true);
+                    try {
+                      const res = await fetch('/api/trigger-calc', { method: 'POST' });
+                      if (res.ok) {
+                        // Refresh logs immediately
+                        const logsRes = await fetch('/api/process-logs');
+                        if (logsRes.ok) setLogs(await logsRes.json());
+                        alert(isRTL ? 'חישוב הושלם בהצלחה' : 'Calculation completed');
+                      } else {
+                        alert(isRTL ? 'שגיאה בחישוב' : 'Calculation failed');
+                      }
+                    } catch (e) {
+                      alert(isRTL ? 'שגיאה בתקשורת' : 'Connection error');
+                    } finally {
+                      setIsClearing(false);
+                    }
+                  }}
+                  disabled={isClearing}
+                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider hover:text-indigo-600 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={isClearing ? 'animate-spin' : ''} />
+                  {isRTL ? 'חשב עכשיו' : 'Run Now'}
+                </button>
+              </div>
+              <button 
+                onClick={handleClearLogs}
+                disabled={isClearing || logs.length === 0}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors disabled:opacity-50 disabled:hover:bg-slate-900"
+              >
+                <Trash2 size={12} />
+                {isRTL ? 'נקה יומן' : 'Clear Logs'}
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-slate-900">
+                    <th className="px-4 py-3 text-start font-black text-slate-900 uppercase tracking-widest text-[10px]">{t.logTimestamp}</th>
+                    <th className="px-4 py-3 text-start font-black text-slate-900 uppercase tracking-widest text-[10px]">{t.rowTimestamp}</th>
+                    <th className="px-4 py-3 text-start font-black text-slate-900 uppercase tracking-widest text-[10px]">{t.team}</th>
+                    <th className="px-4 py-3 text-start font-black text-slate-900 uppercase tracking-widest text-[10px]">{t.action}</th>
+                    <th className="px-4 py-3 text-start font-black text-slate-900 uppercase tracking-widest text-[10px]">{t.logDetails}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y border-b border-slate-200">
+                  {isLoadingLogs && logs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-12 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <RefreshCw size={24} className="animate-spin text-indigo-500" />
+                          <span className="text-sm font-bold text-slate-400">{isRTL ? 'טוען יומנים...' : 'Loading logs...'}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : logs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-12 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <History size={24} className="text-slate-300" />
+                          <span className="text-sm font-bold text-slate-400">{isRTL ? 'אין יומנים זמינים' : 'No logs available'}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    logs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Clock size={12} />
+                            <span className="font-mono text-[10px]">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-[10px] text-slate-400">{log.rowTimestamp}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px] font-black">{log.teamNumber}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border-2 ${
+                            log.action === 'updated' 
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-600' 
+                              : log.action === 'skipped'
+                              ? 'bg-red-50 text-red-600 border-red-600'
+                              : 'bg-blue-50 text-blue-600 border-blue-600'
+                          }`}>
+                            {t[log.action as keyof typeof t] || log.action}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-[10px] font-bold text-slate-700 leading-snug">{log.details}</p>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
